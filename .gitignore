@@ -1,0 +1,37 @@
+# File konfigurasi dengan kredensial database
+config.php
+
+# Folder vendor jika menggunakan Composer
+vendor/
+
+# Cache dan temporary files
+*.log
+*.cache
+*.tmp
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Backup files
+*.bak
+*.backup
+*.old
+
+# Upload folder (jika ada file upload dari user)
+uploads/
+upload/
+
+# Node modules (jika ada)
+node_modules/
+
+# PHP session files
+sessions/
