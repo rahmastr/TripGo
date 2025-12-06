@@ -107,7 +107,7 @@ include 'includes/navbar.php';
     <table class="table table-hover datatable">
         <thead>
             <tr>
-                <th>ID</th>
+                <th>No</th>
                 <th>Nama Lengkap</th>
                 <th>Email</th>
                 <th>No HP</th>
@@ -117,9 +117,12 @@ include 'includes/navbar.php';
             </tr>
         </thead>
         <tbody>
-            <?php foreach ($users as $user): ?>
+            <?php 
+            $no = 1;
+            foreach ($users as $user): 
+            ?>
             <tr>
-                <td><?php echo $user['id']; ?></td>
+                <td><?php echo $no++; ?></td>
                 <td><strong><?php echo htmlspecialchars($user['nama_lengkap']); ?></strong></td>
                 <td><?php echo htmlspecialchars($user['email']); ?></td>
                 <td><?php echo htmlspecialchars($user['no_hp']); ?></td>

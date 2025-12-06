@@ -16,8 +16,20 @@ if (isset($_SESSION['user_id']) && $_SESSION['role'] == 'admin') {
 
 $error = '';
 
+// Simpan data booking jika ada (dari form booking tanpa login)
+if (isset($_POST['route_id']) && isset($_POST['kursi_dipilih']) && !isset($_POST['email'])) {
+    $_SESSION['booking_data'] = [
+        'route_id' => $_POST['route_id'],
+        'tanggal_berangkat' => $_POST['tanggal_berangkat'],
+        'jumlah_penumpang' => $_POST['jumlah_penumpang'],
+        'kursi_dipilih' => $_POST['kursi_dipilih'],
+        'total_harga' => $_POST['total_harga'],
+        'metode_pembayaran' => $_POST['metode_pembayaran']
+    ];
+}
+
 // Handle login
-if ($_SERVER['REQUEST_METHOD'] == 'POST') {
+if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['email'])) {
     $email = trim($_POST['email']);
     $password = $_POST['password'];
     
@@ -37,7 +49,41 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 $_SESSION['email'] = $user['email'];
                 $_SESSION['role'] = $user['role'];
                 
-                // Redirect ke halaman utama
+                // Prioritas 1: Jika ada data booking yang disimpan, redirect ke process_booking
+                if (isset($_SESSION['booking_data'])) {
+                    // Submit data booking secara otomatis setelah login
+                    $booking_data = $_SESSION['booking_data'];
+                    unset($_SESSION['booking_data']);
+                    
+                    // Redirect ke process_booking dengan POST data
+                    echo '<form id="autoSubmit" action="process_booking.php" method="POST">';
+                    foreach ($booking_data as $key => $value) {
+                        echo '<input type="hidden" name="' . htmlspecialchars($key) . '" value="' . htmlspecialchars($value) . '">';
+                    }
+                    echo '</form>';
+                    echo '<script>document.getElementById("autoSubmit").submit();</script>';
+                    exit();
+                }
+                
+                // Prioritas 2: dari URL parameter (?redirect=)
+                if (isset($_GET['redirect']) && !empty($_GET['redirect'])) {
+                    $redirect_to = $_GET['redirect'];
+                    // Validasi redirect URL untuk keamanan (pastikan tidak redirect ke luar domain)
+                    if (strpos($redirect_to, 'http') === false) {
+                        header('Location: ' . $redirect_to);
+                        exit();
+                    }
+                }
+                
+                // Prioritas 3: dari session (untuk kompatibilitas dengan booking.php)
+                if (isset($_SESSION['redirect_after_login']) && !empty($_SESSION['redirect_after_login'])) {
+                    $redirect_to = $_SESSION['redirect_after_login'];
+                    unset($_SESSION['redirect_after_login']); // Hapus setelah digunakan
+                    header('Location: ' . $redirect_to);
+                    exit();
+                }
+                
+                // Default redirect ke halaman utama
                 header('Location: index.php');
                 exit();
             } else {
@@ -186,6 +232,13 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             </div>
             
             <div class="login-body">
+                <?php if (isset($_GET['redirect'])): ?>
+                <div class="alert alert-info alert-dismissible fade show" role="alert">
+                    <i class="bi bi-info-circle"></i> Silakan login terlebih dahulu untuk melanjutkan pemesanan tiket.
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+                <?php endif; ?>
+                
                 <?php if ($error): ?>
                 <div class="alert alert-danger alert-dismissible fade show" role="alert">
                     <i class="bi bi-exclamation-circle"></i> <?php echo $error; ?>
@@ -193,7 +246,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 </div>
                 <?php endif; ?>
                 
-                <form method="POST" action="">
+                <form method="POST" action="<?php echo isset($_GET['redirect']) ? '?redirect=' . urlencode($_GET['redirect']) : ''; ?>">
                     <div class="mb-2">
                         <label class="form-label">Email</label>
                         <div class="input-group">

@@ -39,6 +39,21 @@ $stats['total_users'] = $stmt->fetch(PDO::FETCH_ASSOC)['total'];
 $stmt = $conn->query("SELECT COUNT(*) as total FROM rute");
 $stats['total_routes'] = $stmt->fetch(PDO::FETCH_ASSOC)['total'];
 
+// Data untuk Chart Pembayaran (Online vs Tunai) - Hanya yang success
+$stmt = $conn->query("SELECT COUNT(*) as total FROM pemesanan WHERE is_offline = 0 AND status_pembayaran = 'success'");
+$stats['online_payments'] = $stmt->fetch(PDO::FETCH_ASSOC)['total'];
+
+$stmt = $conn->query("SELECT COUNT(*) as total FROM pemesanan WHERE is_offline = 1 AND status_pembayaran = 'success'");
+$stats['cash_payments_count'] = $stmt->fetch(PDO::FETCH_ASSOC)['total'];
+
+// Pendapatan dari Online - Hanya yang success
+$stmt = $conn->query("SELECT COALESCE(SUM(total_harga), 0) as total FROM pemesanan WHERE is_offline = 0 AND status_pembayaran = 'success'");
+$stats['online_revenue'] = $stmt->fetch(PDO::FETCH_ASSOC)['total'];
+
+// Pendapatan dari Tunai - Hanya yang success
+$stmt = $conn->query("SELECT COALESCE(SUM(total_harga), 0) as total FROM pemesanan WHERE is_offline = 1 AND status_pembayaran = 'success'");
+$stats['cash_revenue'] = $stmt->fetch(PDO::FETCH_ASSOC)['total'];
+
 // Data untuk Chart Top 5 Routes
 $stmt = $conn->query("
     SELECT 
@@ -80,42 +95,35 @@ include 'includes/navbar.php';
 
 <!-- Stats Cards Row -->
 <div class="row">
-    <div class="col-lg-3 col-md-6">
+    <div class="col-lg-4 col-md-6">
         <div class="stat-card blue">
             <i class="bi bi-ticket-perforated stat-icon"></i>
             <h6>Total Pemesanan</h6>
             <h3><?php echo number_format($stats['total_bookings']); ?></h3>
         </div>
     </div>
-    <div class="col-lg-3 col-md-6">
+    <div class="col-lg-4 col-md-6">
         <div class="stat-card green">
             <i class="bi bi-calendar-check stat-icon"></i>
             <h6>Pemesanan Hari Ini</h6>
             <h3><?php echo number_format($stats['today_bookings']); ?></h3>
         </div>
     </div>
-    <div class="col-lg-3 col-md-6">
+    <div class="col-lg-4 col-md-6">
         <div class="stat-card yellow">
             <i class="bi bi-cash-stack stat-icon"></i>
             <h6>Total Pendapatan</h6>
             <h3>Rp <?php echo number_format($stats['total_revenue'], 0, ',', '.'); ?></h3>
         </div>
     </div>
-    <div class="col-lg-3 col-md-6">
-        <div class="stat-card red">
-            <i class="bi bi-graph-up stat-icon"></i>
-            <h6>Pendapatan Bulan Ini</h6>
-            <h3>Rp <?php echo number_format($stats['month_revenue'], 0, ',', '.'); ?></h3>
-        </div>
-    </div>
 </div>
 
 <div class="row mt-3">
     <div class="col-lg-4 col-md-6">
-        <div class="stat-card teal">
-            <i class="bi bi-wallet2 stat-icon"></i>
-            <h6>Total Pemesanan</h6>
-            <h3><?php echo number_format($stats['cash_payments']); ?></h3>
+        <div class="stat-card red">
+            <i class="bi bi-graph-up stat-icon"></i>
+            <h6>Pendapatan Bulan Ini</h6>
+            <h3>Rp <?php echo number_format($stats['month_revenue'], 0, ',', '.'); ?></h3>
         </div>
     </div>
     <div class="col-lg-4 col-md-6">
@@ -136,11 +144,31 @@ include 'includes/navbar.php';
 
 <!-- Charts Row -->
 <div class="row mt-4">
-    <div class="col-12 mb-4">
+    <div class="col-lg-8 mb-4">
         <div class="chart-container" style="height: 280px;">
             <h5><i class="bi bi-bar-chart"></i> Top 5 Rute Terpopuler</h5>
             <div style="height: 220px;">
                 <canvas id="routeChart"></canvas>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-4 mb-4">
+        <div class="chart-container" style="height: 280px;">
+            <h5><i class="bi bi-pie-chart"></i> Metode Pembayaran</h5>
+            <div style="height: 220px;">
+                <canvas id="paymentChart"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Revenue Charts Row -->
+<div class="row mt-2">
+    <div class="col-12 mb-4">
+        <div class="chart-container" style="height: 300px;">
+            <h5><i class="bi bi-cash-stack"></i> Pendapatan Berdasarkan Metode Pembayaran</h5>
+            <div style="height: 240px;">
+                <canvas id="revenueChart"></canvas>
             </div>
         </div>
     </div>
@@ -256,6 +284,132 @@ const routeChart = new Chart(routeCtx, {
             }
         }
     }
+});
+
+// Payment Method Chart (Pie)
+const paymentCtx = document.getElementById('paymentChart').getContext('2d');
+const paymentChart = new Chart(paymentCtx, {
+    type: 'pie',
+    data: {
+        labels: ['Pembayaran Online', 'Pembayaran Tunai'],
+        datasets: [{
+            data: [
+                <?php echo (int)$stats['online_payments']; ?>,
+                <?php echo (int)$stats['cash_payments_count']; ?>
+            ],
+            backgroundColor: [
+                '#3498db',
+                '#2ecc71'
+            ],
+            borderWidth: 2,
+            borderColor: '#fff'
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: {
+                position: 'bottom',
+                labels: {
+                    padding: 15,
+                    font: {
+                        size: 12
+                    }
+                }
+            },
+            tooltip: {
+                callbacks: {
+                    label: function(context) {
+                        let label = context.label || '';
+                        if (label) {
+                            label += ': ';
+                        }
+                        label += context.parsed + ' transaksi';
+                        const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                        if (total > 0) {
+                            const percentage = ((context.parsed / total) * 100).toFixed(1);
+                            label += ' (' + percentage + '%)';
+                        }
+                        return label;
+                    }
+                }
+            }
+        }
+    }
+});
+
+// Revenue by Payment Method Chart (Bar)
+const revenueCtx = document.getElementById('revenueChart').getContext('2d');
+const revenueChart = new Chart(revenueCtx, {
+    type: 'bar',
+    data: {
+        labels: ['Pembayaran Online', 'Pembayaran Tunai'],
+        datasets: [{
+            label: 'Pendapatan (Rp)',
+            data: [
+                <?php echo (int)$stats['online_revenue']; ?>,
+                <?php echo (int)$stats['cash_revenue']; ?>
+            ],
+            backgroundColor: [
+                '#3498db',
+                '#2ecc71'
+            ],
+            borderWidth: 0,
+            barThickness: 100
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+            y: {
+                beginAtZero: true,
+                ticks: {
+                    callback: function(value) {
+                        return 'Rp ' + value.toLocaleString('id-ID');
+                    }
+                },
+                grid: {
+                    display: true,
+                    drawBorder: false
+                }
+            },
+            x: {
+                grid: {
+                    display: false
+                }
+            }
+        },
+        plugins: {
+            legend: {
+                display: false
+            },
+            tooltip: {
+                callbacks: {
+                    label: function(context) {
+                        let label = context.dataset.label || '';
+                        if (label) {
+                            label += ': ';
+                        }
+                        label += 'Rp ' + context.parsed.y.toLocaleString('id-ID');
+                        return label;
+                    }
+                }
+            },
+            datalabels: {
+                display: false
+            }
+        }
+    }
+});
+
+// Log data untuk debugging
+console.log('Payment Stats:', {
+    online_count: <?php echo (int)$stats['online_payments']; ?>,
+    cash_count: <?php echo (int)$stats['cash_payments_count']; ?>,
+    online_revenue: <?php echo (int)$stats['online_revenue']; ?>,
+    cash_revenue: <?php echo (int)$stats['cash_revenue']; ?>
 });
 </script>
 

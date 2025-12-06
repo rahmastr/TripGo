@@ -72,6 +72,20 @@ $stmt = $conn->prepare("
 $stmt->execute([$start_date, $end_date]);
 $top_customers = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
+// Payment Method Stats
+$stmt = $conn->prepare("
+    SELECT 
+        COUNT(CASE WHEN is_offline = 0 THEN 1 END) as online_count,
+        COUNT(CASE WHEN is_offline = 1 THEN 1 END) as cash_count,
+        COALESCE(SUM(CASE WHEN is_offline = 0 THEN total_harga ELSE 0 END), 0) as online_revenue,
+        COALESCE(SUM(CASE WHEN is_offline = 1 THEN total_harga ELSE 0 END), 0) as cash_revenue
+    FROM pemesanan
+    WHERE status_pembayaran = 'success'
+    AND DATE(created_at) BETWEEN ? AND ?
+");
+$stmt->execute([$start_date, $end_date]);
+$payment_stats = $stmt->fetch(PDO::FETCH_ASSOC);
+
 $page_title = 'Laporan';
 include 'includes/header.php';
 include 'includes/navbar.php';
@@ -115,14 +129,14 @@ include 'includes/navbar.php';
 
 <!-- Summary Stats -->
 <div class="row mb-4">
-    <div class="col-md-3">
+    <div class="col-lg-6">
         <div class="stat-card blue">
             <i class="bi bi-ticket-perforated stat-icon"></i>
             <h6>Total Pemesanan</h6>
             <h3><?php echo number_format($stats['total_bookings']); ?></h3>
         </div>
     </div>
-    <div class="col-md-3">
+    <div class="col-lg-6">
         <div class="stat-card green">
             <i class="bi bi-cash-stack stat-icon"></i>
             <h6>Total Pendapatan</h6>
@@ -172,6 +186,7 @@ include 'includes/navbar.php';
 
 <script>
 // Daily Revenue Chart
+<?php if (!empty($daily_revenue)): ?>
 const dailyCtx = document.getElementById('dailyRevenueChart').getContext('2d');
 const dailyChart = new Chart(dailyCtx, {
     type: 'line',
@@ -192,12 +207,21 @@ const dailyChart = new Chart(dailyCtx, {
             backgroundColor: 'rgba(52, 152, 219, 0.1)',
             borderWidth: 3,
             fill: true,
-            tension: 0.4
+            tension: 0.4,
+            pointRadius: 4,
+            pointHoverRadius: 6,
+            pointBackgroundColor: '#3498db',
+            pointBorderColor: '#fff',
+            pointBorderWidth: 2
         }]
     },
     options: {
         responsive: true,
         maintainAspectRatio: true,
+        interaction: {
+            intersect: false,
+            mode: 'index'
+        },
         scales: {
             y: {
                 beginAtZero: true,
@@ -205,18 +229,94 @@ const dailyChart = new Chart(dailyCtx, {
                     callback: function(value) {
                         return 'Rp ' + value.toLocaleString('id-ID');
                     }
+                },
+                grid: {
+                    display: true,
+                    drawBorder: false
+                }
+            },
+            x: {
+                grid: {
+                    display: false
                 }
             }
         },
         plugins: {
             legend: {
                 display: true,
-                position: 'top'
+                position: 'top',
+                labels: {
+                    usePointStyle: true,
+                    padding: 15
+                }
+            },
+            tooltip: {
+                backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                padding: 12,
+                titleFont: {
+                    size: 14
+                },
+                bodyFont: {
+                    size: 13
+                },
+                callbacks: {
+                    label: function(context) {
+                        return 'Pendapatan: Rp ' + context.parsed.y.toLocaleString('id-ID');
+                    }
+                }
+            }
+        }
+    }
+});
+<?php else: ?>
+// Tampilkan pesan jika tidak ada data
+document.getElementById('dailyRevenueChart').parentElement.innerHTML = '<div class="alert alert-info text-center"><i class="bi bi-info-circle"></i> Tidak ada data pendapatan untuk periode ini</div>';
+<?php endif; ?>
+
+// Payment Method Pie Chart
+const paymentCtx = document.getElementById('paymentMethodChart').getContext('2d');
+const paymentChart = new Chart(paymentCtx, {
+    type: 'pie',
+    data: {
+        labels: ['Pembayaran Online', 'Pembayaran Tunai'],
+        datasets: [{
+            data: [
+                <?php echo $payment_stats['online_count']; ?>,
+                <?php echo $payment_stats['cash_count']; ?>
+            ],
+            backgroundColor: [
+                '#3498db',
+                '#2ecc71'
+            ],
+            borderWidth: 2,
+            borderColor: '#fff'
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: true,
+        plugins: {
+            legend: {
+                position: 'bottom',
+                labels: {
+                    padding: 15,
+                    font: {
+                        size: 12
+                    }
+                }
             },
             tooltip: {
                 callbacks: {
                     label: function(context) {
-                        return 'Pendapatan: Rp ' + context.parsed.y.toLocaleString('id-ID');
+                        let label = context.label || '';
+                        if (label) {
+                            label += ': ';
+                        }
+                        label += context.parsed + ' transaksi';
+                        const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                        const percentage = ((context.parsed / total) * 100).toFixed(1);
+                        label += ' (' + percentage + '%)';
+                        return label;
                     }
                 }
             }

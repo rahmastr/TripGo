@@ -1,13 +1,6 @@
 <?php
 require_once 'config.php';
 
-// Cek login
-if (!isset($_SESSION['user_id'])) {
-    $_SESSION['redirect_after_login'] = $_SERVER['REQUEST_URI'];
-    header('Location: login.php');
-    exit();
-}
-
 // Validasi parameter
 if (!isset($_GET['route_id']) || !isset($_GET['tanggal']) || !isset($_GET['jumlah'])) {
     header('Location: index.php');
@@ -366,7 +359,43 @@ include 'includes/navbar.php';
                     </div>
 
                     <!-- Informasi Pembayaran -->
-                    <div class="alert alert-info mb-3" style="font-size: 0.9rem;">
+                    <div class="card border-0 shadow-sm mb-3">
+                        <div class="card-body p-3">
+                            <h6 class="fw-bold mb-3"><i class="bi bi-credit-card"></i> Metode Pembayaran</h6>
+                            
+                            <div class="mb-2">
+                                <div class="form-check payment-method-option">
+                                    <input class="form-check-input" type="radio" name="metode_pembayaran" id="paymentCash" value="cash" checked>
+                                    <label class="form-check-label w-100" for="paymentCash">
+                                        <div class="d-flex align-items-center">
+                                            <i class="bi bi-cash-stack text-success me-2" style="font-size: 1.5rem;"></i>
+                                            <div>
+                                                <strong>Bayar di Kasir</strong>
+                                                <small class="d-block text-muted">Scan QR & bayar di kasir</small>
+                                            </div>
+                                        </div>
+                                    </label>
+                                </div>
+                            </div>
+                            
+                            <div class="mb-0">
+                                <div class="form-check payment-method-option">
+                                    <input class="form-check-input" type="radio" name="metode_pembayaran" id="paymentOnline" value="online">
+                                    <label class="form-check-label w-100" for="paymentOnline">
+                                        <div class="d-flex align-items-center">
+                                            <i class="bi bi-phone text-primary me-2" style="font-size: 1.5rem;"></i>
+                                            <div>
+                                                <strong>Pembayaran Online</strong>
+                                                <small class="d-block text-muted">Transfer, E-Wallet, Kartu Kredit</small>
+                                            </div>
+                                        </div>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="alert alert-info mb-3" id="paymentInfoCash" style="font-size: 0.9rem;">
                         <h6 class="fw-bold mb-2"><i class="bi bi-info-circle-fill"></i> Informasi Penting</h6>
                         <ul class="mb-0 ps-3" style="font-size: 0.85rem;">
                             <li>Pembayaran dan scan QR dilakukan di <strong>kasir</strong></li>
@@ -374,14 +403,24 @@ include 'includes/navbar.php';
                             <li>Simpan bukti pembayaran untuk boarding</li>
                         </ul>
                     </div>
+                    
+                    <div class="alert alert-success mb-3 d-none" id="paymentInfoOnline" style="font-size: 0.9rem;">
+                        <h6 class="fw-bold mb-2"><i class="bi bi-check-circle-fill"></i> Pembayaran Online</h6>
+                        <ul class="mb-0 ps-3" style="font-size: 0.85rem;">
+                            <li>Pembayaran langsung melalui <strong>Midtrans</strong></li>
+                            <li>Metode: Transfer Bank, E-Wallet, Kartu Kredit</li>
+                            <li>Tiket otomatis terbit setelah pembayaran berhasil</li>
+                        </ul>
+                    </div>
 
                     <!-- Form Pemesanan -->
-                    <form action="process_booking.php" method="POST" id="bookingForm">
+                    <form action="<?php echo !isset($_SESSION['user_id']) ? 'login.php' : 'process_booking.php'; ?>" method="POST" id="bookingForm">
                         <input type="hidden" name="route_id" value="<?php echo $route_id; ?>">
                         <input type="hidden" name="tanggal_berangkat" value="<?php echo $tanggal; ?>">
                         <input type="hidden" name="jumlah_penumpang" value="<?php echo $jumlah; ?>">
                         <input type="hidden" name="kursi_dipilih" id="kursiDipilih" value="">
                         <input type="hidden" name="total_harga" value="<?php echo $route['harga'] * $jumlah; ?>">
+                        <input type="hidden" name="metode_pembayaran" id="metodePembayaran" value="cash">
                         
                         <div class="d-grid gap-2">
                             <button type="submit" class="btn btn-success btn-lg py-2 fw-semibold" id="btnSubmit" disabled>
@@ -471,6 +510,45 @@ document.getElementById('bookingForm').addEventListener('submit', function(e) {
         return false;
     }
 });
+
+// Payment method toggle
+document.querySelectorAll('input[name="metode_pembayaran"]').forEach(radio => {
+    radio.addEventListener('change', function() {
+        const metodePembayaran = this.value;
+        document.getElementById('metodePembayaran').value = metodePembayaran;
+        
+        if (metodePembayaran === 'cash') {
+            document.getElementById('paymentInfoCash').classList.remove('d-none');
+            document.getElementById('paymentInfoOnline').classList.add('d-none');
+        } else {
+            document.getElementById('paymentInfoCash').classList.add('d-none');
+            document.getElementById('paymentInfoOnline').classList.remove('d-none');
+        }
+    });
+});
 </script>
+
+<style>
+.payment-method-option {
+    padding: 12px;
+    border: 2px solid #e9ecef;
+    border-radius: 8px;
+    transition: all 0.3s ease;
+}
+
+.payment-method-option:hover {
+    border-color: #0d6efd;
+    background-color: #f8f9fa;
+}
+
+.payment-method-option .form-check-input:checked ~ .form-check-label {
+    color: #0d6efd;
+}
+
+.payment-method-option .form-check-input:checked {
+    background-color: #0d6efd;
+    border-color: #0d6efd;
+}
+</style>
 
 <?php include 'includes/footer.php'; ?>

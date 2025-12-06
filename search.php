@@ -167,7 +167,11 @@ include 'includes/navbar.php';
                                         </div>
                                         <div class="ms-3">
                                             <?php if ($tersedia && $cukup_kursi): ?>
-                                                <a href="booking.php?route_id=<?php echo $route['id']; ?>&tanggal=<?php echo urlencode($_GET['tanggal']); ?>&jumlah=<?php echo $jumlah_penumpang; ?>" 
+                                                <?php
+                                                    // URL booking tujuan - langsung ke booking tanpa cek login
+                                                    $booking_url = "booking.php?route_id=" . $route['id'] . "&tanggal=" . urlencode($_GET['tanggal']) . "&jumlah=" . $jumlah_penumpang;
+                                                ?>
+                                                <a href="<?php echo $booking_url; ?>" 
                                                    class="btn btn-primary px-3 py-2" style="font-size: 0.9rem;">
                                                     <i class="bi bi-ticket-perforated"></i> Pesan Sekarang
                                                 </a>

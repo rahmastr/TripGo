@@ -1,11 +1,14 @@
 # File konfigurasi dengan kredensial database
 config.php
 
+# Midtrans logs
+logs/
+*.log
+
 # Folder vendor jika menggunakan Composer
 vendor/
 
 # Cache dan temporary files
-*.log
 *.cache
 *.tmp
 

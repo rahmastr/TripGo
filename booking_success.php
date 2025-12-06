@@ -31,7 +31,8 @@ $stmt = $conn->prepare("
         u.nama_lengkap,
         u.email,
         u.no_hp,
-        p.midtrans_order_id as booking_code
+        p.midtrans_order_id as booking_code,
+        p.snap_token
     FROM pemesanan p
     JOIN rute r ON p.route_id = r.id
     JOIN bus b ON r.bus_id = b.id
@@ -49,6 +50,30 @@ if (!$booking) {
 
 $page_title = 'Pemesanan Berhasil - ' . SITE_NAME;
 $navbar_fixed = false;
+
+// Determine payment method badge
+$payment_badge = '';
+$payment_icon = '';
+if ($booking['metode_pembayaran'] === 'cash') {
+    $payment_badge = 'Bayar di Kasir';
+    $payment_icon = 'bi bi-cash';
+} else {
+    // Online payment
+    if ($booking['status_pembayaran'] === 'pending') {
+        $payment_badge = 'Menunggu Pembayaran';
+        $payment_icon = 'bi bi-clock-history';
+    } elseif ($booking['status_pembayaran'] === 'success') {
+        $payment_badge = 'Sudah Dibayar';
+        $payment_icon = 'bi bi-check-circle-fill';
+    } elseif ($booking['status_pembayaran'] === 'failed') {
+        $payment_badge = 'Pembayaran Gagal';
+        $payment_icon = 'bi bi-x-circle-fill';
+    } else {
+        // Unknown status
+        $payment_badge = 'Status: ' . ucfirst($booking['status_pembayaran']);
+        $payment_icon = 'bi bi-question-circle';
+    }
+}
 
 include 'includes/header.php';
 include 'includes/navbar.php';
@@ -144,9 +169,47 @@ include 'includes/navbar.php';
                 <!-- QR Code -->
                 <div class="card border-0 shadow-sm mb-4">
                     <div class="card-body text-center p-3">
-                        <h6 class="fw-bold mb-3" style="font-size: 0.95rem;"><i class="bi bi-qr-code-scan"></i> QR Code Pembayaran</h6>
-                        <div class="qr-code-container d-flex justify-content-center">
-                            <div id="qrcode"></div>
+                        <?php if ($booking['metode_pembayaran'] === 'cash'): ?>
+                            <h6 class="fw-bold mb-3" style="font-size: 0.95rem;"><i class="bi bi-qr-code-scan"></i> QR Code Pembayaran</h6>
+                            <div class="qr-code-container d-flex justify-content-center">
+                                <div id="qrcode"></div>
+                            </div>
+                        <?php else: ?>
+                            <h6 class="fw-bold mb-3" style="font-size: 0.95rem;"><i class="bi bi-credit-card"></i> Pembayaran Online</h6>
+                            <?php if ($booking['status_pembayaran'] === 'pending'): ?>
+                                <div class="alert alert-warning">
+                                    <i class="bi bi-clock-history"></i> Menunggu pembayaran...
+                                </div>
+                                <button id="pay-button" class="btn btn-primary btn-lg px-5 mb-2">
+                                    <i class="bi bi-wallet2"></i> Bayar Sekarang
+                                </button>
+                                <p class="text-muted mt-2 mb-3" style="font-size: 0.85rem;">
+                                    Klik tombol di atas untuk melanjutkan pembayaran melalui Midtrans
+                                </p>
+                                
+                                <div class="border-top pt-3 mt-3">
+                                    <p class="text-muted mb-2" style="font-size: 0.85rem;">
+                                        <strong>Sudah bayar tapi status belum berubah?</strong><br>
+                                        Klik tombol di bawah untuk sinkronisasi status:
+                                    </p>
+                                    <button id="sync-button" class="btn btn-warning btn-sm">
+                                        <i class="bi bi-arrow-repeat"></i> Refresh Status Pembayaran
+                                    </button>
+                                    <div id="sync-result" class="mt-2"></div>
+                                </div>
+                            <?php elseif ($booking['status_pembayaran'] === 'success'): ?>
+                                <div class="alert alert-success">
+                                    <i class="bi bi-check-circle-fill"></i> Pembayaran berhasil! Tiket Anda sudah aktif.
+                                </div>
+                                <div class="qr-code-container d-flex justify-content-center">
+                                    <div id="qrcode"></div>
+                                </div>
+                            <?php else: ?>
+                                <div class="alert alert-danger">
+                                    <i class="bi bi-x-circle-fill"></i> Pembayaran dibatalkan atau gagal.
+                                </div>
+                            <?php endif; ?>
+                        <?php endif; ?>
                         </div>
                     </div>
                 </div>
@@ -158,7 +221,7 @@ include 'includes/navbar.php';
                                     <i class="bi bi-ticket-perforated-fill"></i> Detail Perjalanan
                                 </h6>
                                 <span class="payment-badge">
-                                    <i class="bi bi-cash"></i> Bayar di Kasir
+                                    <i class="<?php echo $payment_icon; ?>"></i> <?php echo $payment_badge; ?>
                                 </span>
                             </div>
                             
@@ -252,6 +315,7 @@ include 'includes/navbar.php';
                 </div>
 
                 <!-- Instruksi -->
+                <?php if ($booking['metode_pembayaran'] === 'cash'): ?>
                 <div class="alert alert-warning mb-3 py-2">
                             <h6 class="fw-bold mb-2" style="font-size: 0.9rem;"><i class="bi bi-exclamation-triangle-fill"></i> Instruksi Pembayaran:</h6>
                             <ol class="mb-0 ps-3" style="font-size: 0.85rem;">
@@ -259,9 +323,32 @@ include 'includes/navbar.php';
                                 <li>Lakukan pembayaran dan scan sebelum <strong>2 jam keberangkatan</strong></li>
                             </ol>
                 </div>
+                <?php elseif ($booking['status_pembayaran'] === 'success'): ?>
+                <div class="alert alert-success mb-3 py-2">
+                            <h6 class="fw-bold mb-2" style="font-size: 0.9rem;"><i class="bi bi-check-circle-fill"></i> Tiket Anda Sudah Aktif!</h6>
+                            <ul class="mb-0 ps-3" style="font-size: 0.85rem;">
+                                <li>Tunjukkan QR Code saat boarding</li>
+                                <li>Datang 30 menit sebelum keberangkatan</li>
+                            </ul>
+                </div>
+                <?php else: ?>
+                <div class="alert alert-info mb-3 py-2">
+                            <h6 class="fw-bold mb-2" style="font-size: 0.9rem;"><i class="bi bi-info-circle-fill"></i> Menunggu Pembayaran:</h6>
+                            <ul class="mb-0 ps-3" style="font-size: 0.85rem;">
+                                <li>Selesaikan pembayaran melalui Midtrans</li>
+                                <li>Pembayaran akan expired dalam <strong>2 jam</strong></li>
+                                <li>QR Code akan muncul setelah pembayaran berhasil</li>
+                            </ul>
+                </div>
+                <?php endif; ?>
 
                 <!-- Actions -->
                 <div class="d-grid gap-2">
+                    <?php if ($booking['metode_pembayaran'] === 'online'): ?>
+                    <a href="debug_webhook.php?order_id=<?php echo $booking['booking_code']; ?>" class="btn btn-outline-warning" target="_blank">
+                        <i class="bi bi-bug"></i> Debug Payment Status
+                    </a>
+                    <?php endif; ?>
                     <a href="index.php" class="btn btn-outline-primary">
                         <i class="bi bi-house"></i> Kembali ke Beranda
                     </a>
@@ -274,7 +361,13 @@ include 'includes/navbar.php';
 <!-- QR Code Library -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 
+<!-- Midtrans Snap -->
+<?php if ($booking['metode_pembayaran'] === 'online' && $booking['snap_token']): ?>
+<script src="https://app.sandbox.midtrans.com/snap/snap.js" data-client-key="<?php echo MIDTRANS_CLIENT_KEY; ?>"></script>
+<?php endif; ?>
+
 <script>
+<?php if ($booking['metode_pembayaran'] === 'cash' || $booking['status_pembayaran'] === 'success'): ?>
 // Generate QR Code dengan booking code
 const bookingData = '<?php echo $booking['booking_code']; ?>';
 
@@ -286,8 +379,103 @@ const qrcode = new QRCode(document.getElementById("qrcode"), {
     colorLight: "#ffffff",
     correctLevel: QRCode.CorrectLevel.H
 });
+<?php endif; ?>
 
+<?php if ($booking['metode_pembayaran'] === 'online' && $booking['snap_token'] && $booking['status_pembayaran'] === 'pending'): ?>
+// Midtrans Snap Payment
+const payButton = document.getElementById('pay-button');
+payButton.addEventListener('click', function() {
+    snap.pay('<?php echo $booking['snap_token']; ?>', {
+        onSuccess: function(result) {
+            console.log('Payment success:', result);
+            alert('Pembayaran berhasil! Halaman akan di-refresh.');
+            window.location.reload();
+        },
+        onPending: function(result) {
+            console.log('Payment pending:', result);
+            alert('Menunggu pembayaran Anda. Silakan selesaikan pembayaran.');
+        },
+        onError: function(result) {
+            console.log('Payment error:', result);
+            alert('Pembayaran gagal. Silakan coba lagi.');
+        },
+        onClose: function() {
+            console.log('Payment popup closed');
+        }
+    });
+});
 
+// Manual sync button
+const syncButton = document.getElementById('sync-button');
+if (syncButton) {
+    syncButton.addEventListener('click', function() {
+        const resultDiv = document.getElementById('sync-result');
+        const orderId = '<?php echo $booking['booking_code']; ?>';
+        
+        syncButton.disabled = true;
+        syncButton.innerHTML = '<i class="bi bi-hourglass-split"></i> Mengecek...';
+        resultDiv.innerHTML = '';
+        
+        fetch('sync_payment_manual.php?order_id=' + orderId)
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    if (data.db_status === 'success') {
+                        resultDiv.innerHTML = `
+                            <div class="alert alert-success alert-sm mb-0">
+                                <i class="bi bi-check-circle-fill"></i> <strong>Pembayaran Berhasil!</strong><br>
+                                <small>Halaman akan di-refresh otomatis...</small>
+                            </div>
+                        `;
+                        setTimeout(() => location.reload(), 1500);
+                    } else if (data.db_status === 'pending') {
+                        resultDiv.innerHTML = `
+                            <div class="alert alert-warning alert-sm mb-0">
+                                <i class="bi bi-clock"></i> <small>Status masih pending di Midtrans. Pastikan pembayaran sudah selesai.</small>
+                            </div>
+                        `;
+                    } else {
+                        resultDiv.innerHTML = `
+                            <div class="alert alert-danger alert-sm mb-0">
+                                <i class="bi bi-x-circle"></i> <small>Status: ${data.db_status}</small>
+                            </div>
+                        `;
+                    }
+                } else {
+                    resultDiv.innerHTML = `
+                        <div class="alert alert-danger alert-sm mb-0">
+                            <small>${data.message}</small>
+                        </div>
+                    `;
+                }
+                syncButton.disabled = false;
+                syncButton.innerHTML = '<i class="bi bi-arrow-repeat"></i> Refresh Status Pembayaran';
+            })
+            .catch(error => {
+                resultDiv.innerHTML = `
+                    <div class="alert alert-danger alert-sm mb-0">
+                        <small>Error: ${error.message}</small>
+                    </div>
+                `;
+                syncButton.disabled = false;
+                syncButton.innerHTML = '<i class="bi bi-arrow-repeat"></i> Refresh Status Pembayaran';
+            });
+    });
+}
+
+// Auto-check payment status every 10 seconds (increased from 5)
+setInterval(function() {
+    fetch('payment_status.php?order_id=<?php echo $booking['booking_code']; ?>')
+        .then(response => response.json())
+        .then(data => {
+            if (data.payment_status === 'success') {
+                // Payment successful, reload page to show QR code
+                window.location.reload();
+            }
+        })
+        .catch(error => console.error('Error checking payment status:', error));
+}, 10000); // Check every 10 seconds
+<?php endif; ?>
 </script>
 
 <?php include 'includes/footer.php'; ?>
