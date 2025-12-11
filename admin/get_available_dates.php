@@ -11,7 +11,7 @@ if (!isset($_GET['route_id'])) {
 $route_id = $_GET['route_id'];
 
 try {
-    // Get available dates from jadwal table for this route
+    // Ambil tanggal yang tersedia dari tabel jadwal untuk rute ini
     $stmt = $conn->prepare("
         SELECT 
             j.id as jadwal_id,

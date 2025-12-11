@@ -2,7 +2,7 @@
 require_once 'config.php';
 require_once 'midtrans/Midtrans.php';
 
-// Set Midtrans configuration
+// Set konfigurasi Midtrans
 Midtrans::$serverKey = MIDTRANS_SERVER_KEY;
 Midtrans::$isProduction = MIDTRANS_IS_PRODUCTION;
 
@@ -24,7 +24,7 @@ $orderId = $_GET['order_id'];
 $userId = $_SESSION['user_id'];
 
 try {
-    // Get booking from database
+    // Ambil booking dari database
     $stmt = $conn->prepare("
         SELECT * FROM pemesanan 
         WHERE midtrans_order_id = ? AND user_id = ?
@@ -36,7 +36,7 @@ try {
         throw new Exception('Booking not found');
     }
     
-    // If payment is already confirmed, return current status
+    // Jika pembayaran sudah dikonfirmasi, return status saat ini
     if ($booking['status_pembayaran'] === 'success') {
         header('Content-Type: application/json');
         echo json_encode([
@@ -47,7 +47,7 @@ try {
         exit();
     }
     
-    // Check status from Midtrans
+    // Cek status dari Midtrans
     if ($booking['metode_pembayaran'] === 'online') {
         try {
             $statusResponse = Midtrans::status($orderId);
@@ -69,7 +69,7 @@ try {
                 $newStatus = 'failed';
             }
             
-            // Update status if changed
+            // Update status jika berubah
             if ($newStatus !== $booking['status_pembayaran']) {
                 $stmt = $conn->prepare("
                     UPDATE pemesanan 
@@ -100,7 +100,7 @@ try {
             ]);
         }
     } else {
-        // Cash payment
+        // Pembayaran tunai
         header('Content-Type: application/json');
         echo json_encode([
             'status' => 'success',

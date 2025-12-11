@@ -216,13 +216,10 @@ include 'includes/navbar.php';
 
                 <!-- Ticket Card -->
                 <div class="ticket-card shadow-lg mb-3">
-                            <div class="d-flex justify-content-between align-items-start mb-2">
-                                <h6 class="fw-bold mb-0" style="font-size: 0.9rem;">
+                            <div class="mb-2">
+                                <h6 class="fw-bold mb-2" style="font-size: 0.9rem;">
                                     <i class="bi bi-ticket-perforated-fill"></i> Detail Perjalanan
                                 </h6>
-                                <span class="payment-badge">
-                                    <i class="<?php echo $payment_icon; ?>"></i> <?php echo $payment_badge; ?>
-                                </span>
                             </div>
                             
                             <div class="mb-2">
@@ -270,6 +267,51 @@ include 'includes/navbar.php';
                                     <div class="fw-bold" style="font-size: 0.85rem;"><?php echo $booking['jumlah_penumpang']; ?> Orang</div>
                                 </div>
                             </div>
+                </div>
+
+                <!-- Data Penumpang -->
+                <div class="card border-0 shadow-sm mb-3">
+                    <div class="card-header bg-white border-0 py-2">
+                        <h6 class="mb-0 fw-bold" style="font-size: 0.9rem;"><i class="bi bi-people-fill"></i> Data Penumpang</h6>
+                    </div>
+                    <div class="card-body py-2">
+                        <?php
+                        // Ambil data penumpang
+                        $stmt = $conn->prepare("
+                            SELECT * FROM penumpang 
+                            WHERE booking_id = ? 
+                            ORDER BY nomor_kursi
+                        ");
+                        $stmt->execute([$booking_id]);
+                        $passengers = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                        
+                        if (!empty($passengers)): ?>
+                            <div class="table-responsive">
+                                <table class="table table-sm table-hover mb-0">
+                                    <thead class="table-light">
+                                        <tr style="font-size: 0.8rem;">
+                                            <th>Kursi</th>
+                                            <th>Nama Lengkap</th>
+                                            <th>No HP</th>
+                                            <th>Email</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <?php foreach ($passengers as $p): ?>
+                                        <tr style="font-size: 0.85rem;">
+                                            <td><span class="badge bg-info"><?php echo htmlspecialchars($p['nomor_kursi']); ?></span></td>
+                                            <td class="fw-semibold"><?php echo htmlspecialchars($p['nama_lengkap']); ?></td>
+                                            <td><?php echo htmlspecialchars($p['no_hp']); ?></td>
+                                            <td><?php echo htmlspecialchars($p['email'] ?: '-'); ?></td>
+                                        </tr>
+                                        <?php endforeach; ?>
+                                    </tbody>
+                                </table>
+                            </div>
+                        <?php else: ?>
+                            <p class="text-muted text-center mb-0" style="font-size: 0.85rem;">Data penumpang tidak tersedia</p>
+                        <?php endif; ?>
+                    </div>
                 </div>
 
                 <!-- Data Pemesan -->
@@ -344,11 +386,6 @@ include 'includes/navbar.php';
 
                 <!-- Actions -->
                 <div class="d-grid gap-2">
-                    <?php if ($booking['metode_pembayaran'] === 'online'): ?>
-                    <a href="debug_webhook.php?order_id=<?php echo $booking['booking_code']; ?>" class="btn btn-outline-warning" target="_blank">
-                        <i class="bi bi-bug"></i> Debug Payment Status
-                    </a>
-                    <?php endif; ?>
                     <a href="index.php" class="btn btn-outline-primary">
                         <i class="bi bi-house"></i> Kembali ke Beranda
                     </a>
@@ -463,7 +500,7 @@ if (syncButton) {
     });
 }
 
-// Auto-check payment status every 10 seconds (increased from 5)
+// Periksa status pembayaran otomatis setiap 10 detik (ditingkatkan dari 5)
 setInterval(function() {
     fetch('payment_status.php?order_id=<?php echo $booking['booking_code']; ?>')
         .then(response => response.json())
@@ -474,7 +511,7 @@ setInterval(function() {
             }
         })
         .catch(error => console.error('Error checking payment status:', error));
-}, 10000); // Check every 10 seconds
+}, 10000); // Periksa setiap 10 detik
 <?php endif; ?>
 </script>
 

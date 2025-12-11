@@ -1,7 +1,7 @@
 <?php
 require_once 'config.php';
 
-// Set page title
+// Set judul halaman
 $page_title = 'Hasil Pencarian Rute - ' . SITE_NAME;
 $navbar_fixed = false;
 
@@ -53,7 +53,7 @@ if (isset($_GET['search'])) {
     $search_results = $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
 
-// Include header and navbar
+// Include header dan navbar
 include 'includes/header.php';
 include 'includes/navbar.php';
 ?>

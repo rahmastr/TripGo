@@ -42,6 +42,12 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action']) && $_POST['a
         $jumlah_penumpang = $_POST['jumlah_penumpang'];
         $kursi_dipilih = $_POST['kursi_dipilih'];
         $total_harga = $_POST['total_harga'];
+        $penumpang_data = $_POST['penumpang'] ?? [];
+        
+        // Validasi data penumpang
+        if (empty($penumpang_data) || count($penumpang_data) !== (int)$jumlah_penumpang) {
+            throw new Exception('Data penumpang tidak lengkap!');
+        }
         
         // Cek apakah user dengan email ini sudah ada
         $stmt = $conn->prepare("SELECT id FROM pengguna WHERE email = ?");
@@ -91,6 +97,28 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action']) && $_POST['a
             $stmt->execute([$route_id, $tanggal_berangkat, $kursi, $booking_id]);
         }
         
+        // Insert data penumpang
+        $stmt = $conn->prepare("
+            INSERT INTO penumpang (
+                booking_id, nomor_kursi, nama_lengkap, no_identitas, 
+                jenis_identitas, no_hp, email, jenis_kelamin, usia
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ");
+        
+        foreach ($penumpang_data as $penumpang) {
+            $stmt->execute([
+                $booking_id,
+                $penumpang['kursi'] ?? '',
+                $penumpang['nama'] ?? '',
+                $penumpang['no_identitas'] ?? null,
+                $penumpang['jenis_identitas'] ?? 'KTP',
+                $penumpang['no_hp'] ?? '',
+                $penumpang['email'] ?? null,
+                $penumpang['jenis_kelamin'] ?? null,
+                $penumpang['usia'] ?? 'Dewasa'
+            ]);
+        }
+        
         $conn->commit();
         $_SESSION['success'] = 'Pemesanan tunai berhasil dibuat! Kode Booking: ' . $order_id . ' untuk ' . $nama_lengkap;
     } catch (Exception $e) {
@@ -103,7 +131,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action']) && $_POST['a
 
 
 
-// Get all bookings with details (removed non-existent verified_by column)
+// Ambil semua pemesanan dengan detail (menghapus kolom verified_by yang tidak ada)
 $stmt = $conn->query("
     SELECT 
         p.*,
@@ -122,14 +150,14 @@ $stmt = $conn->query("
 ");
 $bookings = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-// Get routes for dropdown
+// Ambil rute untuk dropdown
 $routes = $conn->query("
     SELECT r.id, CONCAT(r.kota_asal, ' - ', r.kota_tujuan, ' (', TIME_FORMAT(r.jam_berangkat, '%H:%i'), ')') as display_name, r.harga
     FROM rute r
     ORDER BY r.kota_asal
 ")->fetchAll(PDO::FETCH_ASSOC);
 
-// Get users for dropdown
+// Ambil pengguna untuk dropdown
 $users = $conn->query("SELECT id, nama_lengkap, email FROM pengguna WHERE role = 'customer' ORDER BY nama_lengkap")->fetchAll(PDO::FETCH_ASSOC);
 
 $page_title = 'Data Pemesanan';
@@ -380,6 +408,11 @@ include 'includes/navbar.php';
                                        placeholder="Pilih kursi dari peta kursi" readonly>
                                 <small class="text-muted">Klik pada peta kursi di samping untuk memilih</small>
                             </div>
+                            
+                            <!-- Data Penumpang Dinamis -->
+                            <div id="passengerFormsContainer" class="mb-3">
+                                <!-- Forms akan di-generate di sini -->
+                            </div>
 
                             <div class="mb-3">
                                 <label class="form-label">Total Harga</label>
@@ -465,7 +498,7 @@ function onScanSuccess(decodedText, decodedResult) {
 }
 
 function onScanError(errorMessage) {
-    // Ignore scan errors
+    // Abaikan kesalahan pemindaian
 }
 
 function scanBooking(bookingCode) {
@@ -502,7 +535,7 @@ function verifyBooking(bookingCode) {
                     '</div>'
                 );
                 
-                // Reload halaman setelah 2 detik
+                // Muat ulang halaman setelah 2 detik
                 setTimeout(function() {
                     location.reload();
                 }, 2000);
@@ -683,49 +716,168 @@ function updateTotal() {
 }
 
 function viewDetail(booking) {
-    const content = `
-        <div class="row">
-            <div class="col-md-6">
-                <h6 class="text-muted">Informasi Penumpang</h6>
-                <table class="table table-sm">
-                    <tr><td><strong>Nama</strong></td><td>${booking.nama_lengkap}</td></tr>
-                    <tr><td><strong>Email</strong></td><td>${booking.email}</td></tr>
-                    <tr><td><strong>No HP</strong></td><td>${booking.no_hp}</td></tr>
-                </table>
-            </div>
-            <div class="col-md-6">
-                <h6 class="text-muted">Informasi Perjalanan</h6>
-                <table class="table table-sm">
-                    <tr><td><strong>Rute</strong></td><td>${booking.rute}</td></tr>
-                    <tr><td><strong>Bus</strong></td><td>${booking.nama_bus}</td></tr>
-                    <tr><td><strong>Tanggal</strong></td><td>${booking.tanggal_berangkat}</td></tr>
-                    <tr><td><strong>Jam</strong></td><td>${booking.jam_berangkat}</td></tr>
-                </table>
-            </div>
-        </div>
-        <div class="row mt-3">
-            <div class="col-md-6">
-                <h6 class="text-muted">Informasi Pembayaran</h6>
-                <table class="table table-sm">
-                    <tr><td><strong>Booking Code</strong></td><td>${booking.booking_code}</td></tr>
-                    <tr><td><strong>Metode</strong></td><td>${booking.is_offline ? 'Tunai' : 'Online'}</td></tr>
-                    <tr><td><strong>Jumlah</strong></td><td>${booking.jumlah_penumpang} penumpang</td></tr>
-                    <tr><td><strong>Kursi</strong></td><td>${booking.kursi_dipilih}</td></tr>
-                    <tr><td><strong>Total</strong></td><td>Rp ${parseInt(booking.total_harga).toLocaleString('id-ID')}</td></tr>
-                </table>
-            </div>
-            <div class="col-md-6">
-                <h6 class="text-muted">Status Verifikasi</h6>
-                <table class="table table-sm">
-                    <tr><td><strong>Status</strong></td><td>${booking.status_pembayaran}</td></tr>
-                    <tr><td><strong>QR Verified</strong></td><td>${booking.qr_used ? 'Ya' : 'Tidak'}</td></tr>
-                    ${booking.qr_scanned_at ? `<tr><td><strong>Verified At</strong></td><td>${booking.qr_scanned_at}</td></tr>` : ''}
-                </table>
-            </div>
-        </div>
-    `;
+    // Muat data penumpang melalui AJAX
+    $.ajax({
+        url: '../get_passengers.php',
+        method: 'GET',
+        data: { booking_id: booking.id },
+        dataType: 'json',
+        success: function(response) {
+            let passengerTableHtml = '';
+            
+            if (response.success && response.passengers.length > 0) {
+                passengerTableHtml = `
+                    <div class="row mt-3">
+                        <div class="col-12">
+                            <h6 class="text-muted"><i class="bi bi-people-fill"></i> Data Penumpang</h6>
+                            <div class="table-responsive">
+                                <table class="table table-sm table-bordered table-hover">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>Kursi</th>
+                                            <th>Nama Lengkap</th>
+                                            <th>No HP</th>
+                                            <th>Email</th>
+                                            <th>Jenis Kelamin</th>
+                                            <th>Usia</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                `;
+                
+                response.passengers.forEach(p => {
+                    passengerTableHtml += `
+                        <tr>
+                            <td><span class="badge bg-info">${p.nomor_kursi}</span></td>
+                            <td><strong>${p.nama_lengkap}</strong></td>
+                            <td>${p.no_hp}</td>
+                            <td>${p.email || '-'}</td>
+                            <td>${p.jenis_kelamin || '-'}</td>
+                            <td>${p.usia || '-'}</td>
+                        </tr>
+                    `;
+                });
+                
+                passengerTableHtml += `
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            } else {
+                passengerTableHtml = `
+                    <div class="row mt-3">
+                        <div class="col-12">
+                            <h6 class="text-muted"><i class="bi bi-people-fill"></i> Data Penumpang</h6>
+                            <div class="alert alert-warning">
+                                <i class="bi bi-info-circle"></i> Data penumpang tidak tersedia untuk booking ini.
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            const content = `
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6 class="text-muted"><i class="bi bi-person-circle"></i> Data Pemesan</h6>
+                        <table class="table table-sm">
+                            <tr><td><strong>Nama</strong></td><td>${booking.nama_lengkap}</td></tr>
+                            <tr><td><strong>Email</strong></td><td>${booking.email}</td></tr>
+                            <tr><td><strong>No HP</strong></td><td>${booking.no_hp}</td></tr>
+                        </table>
+                    </div>
+                    <div class="col-md-6">
+                        <h6 class="text-muted"><i class="bi bi-bus-front"></i> Informasi Perjalanan</h6>
+                        <table class="table table-sm">
+                            <tr><td><strong>Rute</strong></td><td>${booking.rute}</td></tr>
+                            <tr><td><strong>Bus</strong></td><td>${booking.nama_bus}</td></tr>
+                            <tr><td><strong>Tanggal</strong></td><td>${booking.tanggal_berangkat}</td></tr>
+                            <tr><td><strong>Jam</strong></td><td>${booking.jam_berangkat}</td></tr>
+                        </table>
+                    </div>
+                </div>
+                <div class="row mt-3">
+                    <div class="col-md-6">
+                        <h6 class="text-muted"><i class="bi bi-receipt"></i> Informasi Pembayaran</h6>
+                        <table class="table table-sm">
+                            <tr><td><strong>Booking Code</strong></td><td><span class="text-primary fw-bold">${booking.booking_code}</span></td></tr>
+                            <tr><td><strong>Metode</strong></td><td>${booking.is_offline ? '<span class="badge bg-info">Tunai</span>' : '<span class="badge bg-primary">Online</span>'}</td></tr>
+                            <tr><td><strong>Jumlah</strong></td><td>${booking.jumlah_penumpang} penumpang</td></tr>
+                            <tr><td><strong>Kursi</strong></td><td><span class="badge bg-secondary">${booking.kursi_dipilih}</span></td></tr>
+                            <tr><td><strong>Total</strong></td><td><strong class="text-success">Rp ${parseInt(booking.total_harga).toLocaleString('id-ID')}</strong></td></tr>
+                        </table>
+                    </div>
+                    <div class="col-md-6">
+                        <h6 class="text-muted"><i class="bi bi-shield-check"></i> Status Verifikasi</h6>
+                        <table class="table table-sm">
+                            <tr><td><strong>Status</strong></td><td><span class="badge ${booking.status_pembayaran === 'success' ? 'bg-success' : booking.status_pembayaran === 'pending' ? 'bg-warning' : 'bg-danger'}">${booking.status_pembayaran}</span></td></tr>
+                            <tr><td><strong>QR Verified</strong></td><td>${booking.qr_used ? '<span class="badge bg-success"><i class="bi bi-check-circle"></i> Ya</span>' : '<span class="badge bg-secondary">Tidak</span>'}</td></tr>
+                            ${booking.qr_scanned_at ? `<tr><td><strong>Verified At</strong></td><td>${booking.qr_scanned_at}</td></tr>` : ''}
+                        </table>
+                    </div>
+                </div>
+                ${passengerTableHtml}
+            `;
+            
+            $('#detailContent').html(content);
+        },
+        error: function() {
+            const content = `
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6 class="text-muted"><i class="bi bi-person-circle"></i> Data Pemesan</h6>
+                        <table class="table table-sm">
+                            <tr><td><strong>Nama</strong></td><td>${booking.nama_lengkap}</td></tr>
+                            <tr><td><strong>Email</strong></td><td>${booking.email}</td></tr>
+                            <tr><td><strong>No HP</strong></td><td>${booking.no_hp}</td></tr>
+                        </table>
+                    </div>
+                    <div class="col-md-6">
+                        <h6 class="text-muted"><i class="bi bi-bus-front"></i> Informasi Perjalanan</h6>
+                        <table class="table table-sm">
+                            <tr><td><strong>Rute</strong></td><td>${booking.rute}</td></tr>
+                            <tr><td><strong>Bus</strong></td><td>${booking.nama_bus}</td></tr>
+                            <tr><td><strong>Tanggal</strong></td><td>${booking.tanggal_berangkat}</td></tr>
+                            <tr><td><strong>Jam</strong></td><td>${booking.jam_berangkat}</td></tr>
+                        </table>
+                    </div>
+                </div>
+                <div class="row mt-3">
+                    <div class="col-md-6">
+                        <h6 class="text-muted"><i class="bi bi-receipt"></i> Informasi Pembayaran</h6>
+                        <table class="table table-sm">
+                            <tr><td><strong>Booking Code</strong></td><td><span class="text-primary fw-bold">${booking.booking_code}</span></td></tr>
+                            <tr><td><strong>Metode</strong></td><td>${booking.is_offline ? '<span class="badge bg-info">Tunai</span>' : '<span class="badge bg-primary">Online</span>'}</td></tr>
+                            <tr><td><strong>Jumlah</strong></td><td>${booking.jumlah_penumpang} penumpang</td></tr>
+                            <tr><td><strong>Kursi</strong></td><td><span class="badge bg-secondary">${booking.kursi_dipilih}</span></td></tr>
+                            <tr><td><strong>Total</strong></td><td><strong class="text-success">Rp ${parseInt(booking.total_harga).toLocaleString('id-ID')}</strong></td></tr>
+                        </table>
+                    </div>
+                    <div class="col-md-6">
+                        <h6 class="text-muted"><i class="bi bi-shield-check"></i> Status Verifikasi</h6>
+                        <table class="table table-sm">
+                            <tr><td><strong>Status</strong></td><td><span class="badge ${booking.status_pembayaran === 'success' ? 'bg-success' : booking.status_pembayaran === 'pending' ? 'bg-warning' : 'bg-danger'}">${booking.status_pembayaran}</span></td></tr>
+                            <tr><td><strong>QR Verified</strong></td><td>${booking.qr_used ? '<span class="badge bg-success"><i class="bi bi-check-circle"></i> Ya</span>' : '<span class="badge bg-secondary">Tidak</span>'}</td></tr>
+                            ${booking.qr_scanned_at ? `<tr><td><strong>Verified At</strong></td><td>${booking.qr_scanned_at}</td></tr>` : ''}
+                        </table>
+                    </div>
+                </div>
+                <div class="row mt-3">
+                    <div class="col-12">
+                        <div class="alert alert-danger">
+                            <i class="bi bi-exclamation-triangle"></i> Gagal memuat data penumpang
+                        </div>
+                    </div>
+                </div>
+            `;
+            $('#detailContent').html(content);
+        }
+    });
     
-    $('#detailContent').html(content);
+    // Tampilkan modal segera dengan status memuat
+    $('#detailContent').html('<div class="text-center py-5"><i class="bi bi-hourglass-split fs-1"></i><p class="mt-2">Memuat data...</p></div>');
     $('#detailModal').modal('show');
 }
 
@@ -738,14 +890,14 @@ function deleteBooking(id, bookingCode) {
 // Fungsi untuk pemesanan tunai
 let selectedSeats = [];
 
-// Load available dates based on selected route
+// Muat tanggal yang tersedia berdasarkan rute yang dipilih
 function loadAvailableDates() {
     const routeId = document.getElementById('route_select').value;
     const dateSelect = document.getElementById('tanggal_berangkat_select');
     const dateManual = document.getElementById('tanggal_berangkat_manual');
     const dateHint = document.getElementById('tanggal_hint');
     
-    // Reset date fields
+    // Setel ulang kolom tanggal
     dateSelect.innerHTML = '<option value="">-- Pilih Tanggal --</option>';
     dateSelect.style.display = 'none';
     dateManual.style.display = 'none';
@@ -753,7 +905,7 @@ function loadAvailableDates() {
     dateSelect.removeAttribute('name');
     dateManual.removeAttribute('name');
     
-    // Reset seat map
+    // Setel ulang peta kursi
     selectedSeats = [];
     document.getElementById('kursi_dipilih').value = '';
     document.getElementById('total_harga').value = '';
@@ -768,7 +920,7 @@ function loadAvailableDates() {
     
     dateHint.textContent = 'Memuat jadwal...';
     
-    // Fetch available dates from jadwal
+    // Ambil tanggal yang tersedia dari jadwal
     fetch('get_available_dates.php?route_id=' + routeId)
     .then(response => response.json())
     .then(data => {
@@ -795,7 +947,7 @@ function loadAvailableDates() {
     })
     .catch(error => {
         console.error('Error loading dates:', error);
-        // Fallback ke date picker jika error
+        // Kembali ke pemilih tanggal jika terjadi kesalahan
         dateManual.style.display = 'block';
         dateManual.setAttribute('name', 'tanggal_berangkat');
         dateManual.setAttribute('required', 'required');
@@ -878,7 +1030,7 @@ function generateCashBookingSeatMap(totalSeats, bookedSeats) {
     
     html += '</div>';
     
-    // Add CSS
+    // Tambahkan CSS
     html += `<style>
         .seat-layout-admin { max-width: 100%; }
         .seat-row-admin { display: flex; justify-content: center; gap: 8px; margin-bottom: 8px; }
@@ -944,6 +1096,103 @@ function toggleSeat(seatCode) {
     document.getElementById('kursi_dipilih').value = selectedSeats.sort().join(', ');
     document.getElementById('jumlah_penumpang').value = selectedSeats.length || 1;
     updateTotal();
+    generatePassengerFormsAdmin();
+}
+
+function generatePassengerFormsAdmin() {
+    const container = document.getElementById('passengerFormsContainer');
+    
+    if (selectedSeats.length === 0) {
+        container.innerHTML = '';
+        return;
+    }
+    
+    const sortedSeats = selectedSeats.sort((a, b) => {
+        const letterA = a.charAt(0);
+        const letterB = b.charAt(0);
+        const numberA = parseInt(a.substring(1));
+        const numberB = parseInt(b.substring(1));
+        
+        if (numberA !== numberB) {
+            return numberA - numberB;
+        }
+        return letterA.localeCompare(letterB);
+    });
+    
+    let formsHTML = '<h6 class="text-primary mb-3 mt-3"><i class="bi bi-people-fill"></i> Data Penumpang</h6>';
+    
+    sortedSeats.forEach((seat, index) => {
+        formsHTML += `
+            <div class="passenger-form-admin border rounded p-3 mb-3 bg-light">
+                <h6 class="text-secondary mb-3">
+                    <i class="bi bi-person-badge"></i> Penumpang ${index + 1} - Kursi ${seat}
+                </h6>
+                
+                <input type="hidden" name="penumpang[${index}][kursi]" value="${seat}">
+                
+                <div class="row g-2">
+                    <div class="col-md-6">
+                        <label class="form-label small mb-1">Nama Lengkap <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control form-control-sm passenger-input-admin" 
+                               name="penumpang[${index}][nama]" 
+                               placeholder="Sesuai identitas" 
+                               required>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <label class="form-label small mb-1">No HP/WhatsApp <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control form-control-sm passenger-input-admin" 
+                               name="penumpang[${index}][no_hp]" 
+                               placeholder="08xxxxxxxxxx" 
+                               required>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <label class="form-label small mb-1">Email</label>
+                        <input type="email" class="form-control form-control-sm" 
+                               name="penumpang[${index}][email]" 
+                               placeholder="email@contoh.com">
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <label class="form-label small mb-1">Jenis Kelamin</label>
+                        <select class="form-select form-select-sm" name="penumpang[${index}][jenis_kelamin]">
+                            <option value="">Pilih</option>
+                            <option value="Laki-laki">Laki-laki</option>
+                            <option value="Perempuan">Perempuan</option>
+                        </select>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <label class="form-label small mb-1">Jenis Identitas</label>
+                        <select class="form-select form-select-sm" name="penumpang[${index}][jenis_identitas]">
+                            <option value="KTP">KTP</option>
+                            <option value="SIM">SIM</option>
+                            <option value="Passport">Passport</option>
+                            <option value="Lainnya">Lainnya</option>
+                        </select>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <label class="form-label small mb-1">No Identitas</label>
+                        <input type="text" class="form-control form-control-sm" 
+                               name="penumpang[${index}][no_identitas]" 
+                               placeholder="Nomor KTP/SIM/Passport">
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <label class="form-label small mb-1">Usia</label>
+                        <select class="form-select form-select-sm" name="penumpang[${index}][usia]">
+                            <option value="Dewasa">Dewasa</option>
+                            <option value="Anak-anak">Anak-anak</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+    
+    container.innerHTML = formsHTML;
 }
 
 function updateTotal() {
@@ -954,10 +1203,11 @@ function updateTotal() {
     document.getElementById('total_harga').value = total;
 }
 
-// Reset form saat modal ditutup
+// Setel ulang formulir saat modal ditutup
 $('#cashBookingModal').on('hidden.bs.modal', function() {
     document.getElementById('cashBookingForm').reset();
     selectedSeats = [];
+    document.getElementById('passengerFormsContainer').innerHTML = '';
     document.getElementById('tanggal_berangkat_select').innerHTML = '<option value="">-- Pilih Tanggal --</option>';
     document.getElementById('tanggal_berangkat_select').style.display = 'none';
     document.getElementById('tanggal_berangkat_manual').style.display = 'none';
@@ -1020,8 +1270,24 @@ $('#cashBookingForm').on('submit', function(e) {
         return false;
     }
     
+    // Validasi data penumpang
+    const passengerInputs = document.querySelectorAll('.passenger-input-admin[required]');
+    let allPassengerDataFilled = true;
+    
+    passengerInputs.forEach(input => {
+        if (!input.value.trim()) {
+            allPassengerDataFilled = false;
+        }
+    });
+    
+    if (!allPassengerDataFilled) {
+        e.preventDefault();
+        alert('Silakan lengkapi data semua penumpang (Nama & No HP wajib diisi)!');
+        return false;
+    }
+    
     // Konfirmasi sebelum submit
-    if (!confirm('Apakah Anda yakin ingin membuat pemesanan tunai ini?\n\nNama: ' + namaLengkap + '\nKursi: ' + kursiDipilih + '\nTotal: Rp ' + parseInt(totalHarga).toLocaleString('id-ID'))) {
+    if (!confirm('Apakah Anda yakin ingin membuat pemesanan tunai ini?\n\nPemesan: ' + namaLengkap + '\nKursi: ' + kursiDipilih + '\nTotal: Rp ' + parseInt(totalHarga).toLocaleString('id-ID'))) {
         e.preventDefault();
         return false;
     }

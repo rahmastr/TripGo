@@ -38,7 +38,7 @@ $stmt = $conn->prepare("
 $stmt->execute([$start_date, $end_date]);
 $daily_revenue = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-// Revenue by Route
+// Pendapatan per Rute
 $stmt = $conn->prepare("
     SELECT 
         CONCAT(r.kota_asal, ' - ', r.kota_tujuan) as route,

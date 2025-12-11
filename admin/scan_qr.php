@@ -46,7 +46,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['booking_code'])) {
             exit();
         }
         
-        // Update status verifikasi (remove qr_scanned_by because column not present in schema)
+        // Perbarui status verifikasi (hapus qr_scanned_by karena kolom tidak ada dalam skema)
         $stmt = $conn->prepare("
             UPDATE pemesanan 
             SET qr_used = 1, 

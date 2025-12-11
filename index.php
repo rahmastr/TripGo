@@ -250,6 +250,6 @@ require_once 'includes/navbar.php';
 
 
 <?php
-// Include footer (handles scripts and closing tags)
+// Sertakan footer (menangani skrip dan tag penutup)
 require_once 'includes/footer.php';
 ?>

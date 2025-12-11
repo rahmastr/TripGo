@@ -1,7 +1,7 @@
 <?php
 require_once 'config.php';
 
-// Destroy session
+// Hapus session
 $_SESSION = array();
 
 if (ini_get("session.use_cookies")) {

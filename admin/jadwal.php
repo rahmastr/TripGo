@@ -8,7 +8,7 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] != 'admin') {
     exit();
 }
 
-// Handle CRUD Operations
+// Tangani Operasi CRUD
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     if (isset($_POST['action'])) {
         try {
@@ -44,7 +44,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     }
 }
 
-// Get all schedules with route info
+// Ambil semua jadwal dengan info rute
 $stmt = $conn->query("
     SELECT j.*, CONCAT(r.kota_asal, ' - ', r.kota_tujuan) as rute, r.jam_berangkat, b.nama_bus
     FROM jadwal j
@@ -54,7 +54,7 @@ $stmt = $conn->query("
 ");
 $jadwal = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-// Get all routes for dropdown
+// Ambil semua rute untuk dropdown
 $routes = $conn->query("
     SELECT r.id, CONCAT(r.kota_asal, ' - ', r.kota_tujuan, ' (', r.jam_berangkat, ')') as display_name
     FROM rute r

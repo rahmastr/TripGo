@@ -28,8 +28,8 @@ if (isset($_POST['route_id']) && isset($_POST['kursi_dipilih']) && !isset($_POST
     ];
 }
 
-// Handle login
-if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['email'])) {
+// Handle proses login
+if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['email']) && isset($_POST['password'])) {
     $email = trim($_POST['email']);
     $password = $_POST['password'];
     
@@ -49,23 +49,63 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['email'])) {
                 $_SESSION['email'] = $user['email'];
                 $_SESSION['role'] = $user['role'];
                 
-                // Prioritas 1: Jika ada data booking yang disimpan, redirect ke process_booking
+                // Prioritas 1: Cek jika ada pending_booking dari session
+                if (isset($_SESSION['pending_booking'])) {
+                    $pending = $_SESSION['pending_booking'];
+                    
+                    // Cek apakah data masih valid (tidak lebih dari 30 menit)
+                    if ((time() - $pending['timestamp']) < 1800) {
+                        unset($_SESSION['pending_booking']);
+                        
+                        // Redirect ke process_booking dengan POST data
+                        echo '<html><body>';
+                        echo '<form id="autoSubmit" action="process_booking.php" method="POST">';
+                        echo '<input type="hidden" name="route_id" value="' . htmlspecialchars($pending['route_id']) . '">';
+                        echo '<input type="hidden" name="tanggal_berangkat" value="' . htmlspecialchars($pending['tanggal_berangkat']) . '">';
+                        echo '<input type="hidden" name="jumlah_penumpang" value="' . htmlspecialchars($pending['jumlah_penumpang']) . '">';
+                        echo '<input type="hidden" name="kursi_dipilih" value="' . htmlspecialchars($pending['kursi_dipilih']) . '">';
+                        echo '<input type="hidden" name="total_harga" value="' . htmlspecialchars($pending['total_harga']) . '">';
+                        echo '<input type="hidden" name="metode_pembayaran" value="' . htmlspecialchars($pending['metode_pembayaran']) . '">';
+                        
+                        // Data penumpang
+                        if (isset($pending['penumpang']) && is_array($pending['penumpang'])) {
+                            foreach ($pending['penumpang'] as $index => $penumpang) {
+                                foreach ($penumpang as $key => $value) {
+                                    echo '<input type="hidden" name="penumpang[' . $index . '][' . htmlspecialchars($key) . ']" value="' . htmlspecialchars($value) . '">';
+                                }
+                            }
+                        }
+                        
+                        echo '</form>';
+                        echo '<script>document.getElementById("autoSubmit").submit();</script>';
+                        echo '</body></html>';
+                        exit();
+                    } else {
+                        // Data sudah kadaluarsa
+                        unset($_SESSION['pending_booking']);
+                        $_SESSION['info'] = 'Data booking Anda telah kadaluarsa. Silakan booking ulang.';
+                    }
+                }
+                
+                // Prioritas 2: Jika ada booking_data lama (untuk backward compatibility)
                 if (isset($_SESSION['booking_data'])) {
                     // Submit data booking secara otomatis setelah login
                     $booking_data = $_SESSION['booking_data'];
                     unset($_SESSION['booking_data']);
                     
                     // Redirect ke process_booking dengan POST data
+                    echo '<html><body>';
                     echo '<form id="autoSubmit" action="process_booking.php" method="POST">';
                     foreach ($booking_data as $key => $value) {
                         echo '<input type="hidden" name="' . htmlspecialchars($key) . '" value="' . htmlspecialchars($value) . '">';
                     }
                     echo '</form>';
                     echo '<script>document.getElementById("autoSubmit").submit();</script>';
+                    echo '</body></html>';
                     exit();
                 }
                 
-                // Prioritas 2: dari URL parameter (?redirect=)
+                // Prioritas 3: dari URL parameter (?redirect=)
                 if (isset($_GET['redirect']) && !empty($_GET['redirect'])) {
                     $redirect_to = $_GET['redirect'];
                     // Validasi redirect URL untuk keamanan (pastikan tidak redirect ke luar domain)
@@ -235,6 +275,13 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['email'])) {
                 <?php if (isset($_GET['redirect'])): ?>
                 <div class="alert alert-info alert-dismissible fade show" role="alert">
                     <i class="bi bi-info-circle"></i> Silakan login terlebih dahulu untuk melanjutkan pemesanan tiket.
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+                <?php endif; ?>
+                
+                <?php if (isset($_SESSION['info'])): ?>
+                <div class="alert alert-info alert-dismissible fade show" role="alert">
+                    <i class="bi bi-info-circle"></i> <?php echo $_SESSION['info']; unset($_SESSION['info']); ?>
                     <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
                 </div>
                 <?php endif; ?>

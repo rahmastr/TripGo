@@ -8,7 +8,7 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] != 'admin') {
     exit();
 }
 
-// Handle CRUD Operations
+// Tangani Operasi CRUD
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     if (isset($_POST['action'])) {
         try {
@@ -42,7 +42,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     }
 }
 
-// Get all buses
+// Ambil semua bus
 $stmt = $conn->query("SELECT * FROM bus ORDER BY id DESC");
 $buses = $stmt->fetchAll(PDO::FETCH_ASSOC);
 

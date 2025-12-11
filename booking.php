@@ -363,24 +363,9 @@ include 'includes/navbar.php';
                         <div class="card-body p-3">
                             <h6 class="fw-bold mb-3"><i class="bi bi-credit-card"></i> Metode Pembayaran</h6>
                             
-                            <div class="mb-2">
-                                <div class="form-check payment-method-option">
-                                    <input class="form-check-input" type="radio" name="metode_pembayaran" id="paymentCash" value="cash" checked>
-                                    <label class="form-check-label w-100" for="paymentCash">
-                                        <div class="d-flex align-items-center">
-                                            <i class="bi bi-cash-stack text-success me-2" style="font-size: 1.5rem;"></i>
-                                            <div>
-                                                <strong>Bayar di Kasir</strong>
-                                                <small class="d-block text-muted">Scan QR & bayar di kasir</small>
-                                            </div>
-                                        </div>
-                                    </label>
-                                </div>
-                            </div>
-                            
                             <div class="mb-0">
                                 <div class="form-check payment-method-option">
-                                    <input class="form-check-input" type="radio" name="metode_pembayaran" id="paymentOnline" value="online">
+                                    <input class="form-check-input" type="radio" name="metode_pembayaran" id="paymentOnline" value="online" checked>
                                     <label class="form-check-label w-100" for="paymentOnline">
                                         <div class="d-flex align-items-center">
                                             <i class="bi bi-phone text-primary me-2" style="font-size: 1.5rem;"></i>
@@ -395,32 +380,37 @@ include 'includes/navbar.php';
                         </div>
                     </div>
                     
-                    <div class="alert alert-info mb-3" id="paymentInfoCash" style="font-size: 0.9rem;">
-                        <h6 class="fw-bold mb-2"><i class="bi bi-info-circle-fill"></i> Informasi Penting</h6>
-                        <ul class="mb-0 ps-3" style="font-size: 0.85rem;">
-                            <li>Pembayaran dan scan QR dilakukan di <strong>kasir</strong></li>
-                            <li>Lakukan pembayaran <strong>1 jam sebelum keberangkatan</strong></li>
-                            <li>Simpan bukti pembayaran untuk boarding</li>
-                        </ul>
-                    </div>
-                    
-                    <div class="alert alert-success mb-3 d-none" id="paymentInfoOnline" style="font-size: 0.9rem;">
+                    <div class="alert alert-success mb-3" id="paymentInfoOnline" style="font-size: 0.9rem;">
                         <h6 class="fw-bold mb-2"><i class="bi bi-check-circle-fill"></i> Pembayaran Online</h6>
                         <ul class="mb-0 ps-3" style="font-size: 0.85rem;">
-                            <li>Pembayaran langsung melalui <strong>Midtrans</strong></li>
                             <li>Metode: Transfer Bank, E-Wallet, Kartu Kredit</li>
                             <li>Tiket otomatis terbit setelah pembayaran berhasil</li>
                         </ul>
                     </div>
 
                     <!-- Form Pemesanan -->
-                    <form action="<?php echo !isset($_SESSION['user_id']) ? 'login.php' : 'process_booking.php'; ?>" method="POST" id="bookingForm">
+                    <form action="<?php echo !isset($_SESSION['user_id']) ? '' : 'process_booking.php'; ?>" method="POST" id="bookingForm">
                         <input type="hidden" name="route_id" value="<?php echo $route_id; ?>">
                         <input type="hidden" name="tanggal_berangkat" value="<?php echo $tanggal; ?>">
                         <input type="hidden" name="jumlah_penumpang" value="<?php echo $jumlah; ?>">
                         <input type="hidden" name="kursi_dipilih" id="kursiDipilih" value="">
                         <input type="hidden" name="total_harga" value="<?php echo $route['harga'] * $jumlah; ?>">
-                        <input type="hidden" name="metode_pembayaran" id="metodePembayaran" value="cash">
+                        <input type="hidden" name="metode_pembayaran" id="metodePembayaran" value="online">
+                        
+                        <!-- Data Penumpang -->
+                        <div class="card border-0 shadow-sm mb-3">
+                            <div class="card-body p-3">
+                                <h6 class="fw-bold mb-3"><i class="bi bi-people-fill"></i> Data Penumpang</h6>
+                                <p class="text-muted small mb-3">Silakan lengkapi data untuk setiap penumpang sesuai kursi yang dipilih</p>
+                                
+                                <!-- Container untuk form penumpang yang akan dibuat dinamis -->
+                                <div id="passengerFormsContainer">
+                                    <div class="alert alert-warning small mb-0">
+                                        <i class="bi bi-info-circle"></i> Silakan pilih kursi terlebih dahulu untuk mengisi data penumpang
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                         
                         <div class="d-grid gap-2">
                             <button type="submit" class="btn btn-success btn-lg py-2 fw-semibold" id="btnSubmit" disabled>
@@ -493,39 +483,196 @@ function updateSummary() {
     // Update hidden fields
     document.getElementById('kursiDipilih').value = selectedSeats.join(',');
     
+    // Generate form penumpang dinamis
+    generatePassengerForms();
+    
     // Enable/disable submit button
-    const btnSubmit = document.getElementById('btnSubmit');
-    if (selectedSeats.length === maxSeats) {
-        btnSubmit.disabled = false;
-    } else {
-        btnSubmit.disabled = true;
+    updateSubmitButton();
+}
+
+function generatePassengerForms() {
+    const container = document.getElementById('passengerFormsContainer');
+    
+    if (selectedSeats.length === 0) {
+        container.innerHTML = `
+            <div class="alert alert-warning small mb-0">
+                <i class="bi bi-info-circle"></i> Silakan pilih kursi terlebih dahulu untuk mengisi data penumpang
+            </div>
+        `;
+        return;
     }
+    
+    // Sort kursi yang dipilih
+    const sortedSeats = selectedSeats.sort((a, b) => {
+        const letterA = a.charAt(0);
+        const letterB = b.charAt(0);
+        const numberA = parseInt(a.substring(1));
+        const numberB = parseInt(b.substring(1));
+        
+        if (numberA !== numberB) {
+            return numberA - numberB;
+        }
+        return letterA.localeCompare(letterB);
+    });
+    
+    // Generate form untuk setiap kursi
+    let formsHTML = '';
+    sortedSeats.forEach((seat, index) => {
+        formsHTML += `
+            <div class="passenger-form mb-3 p-3 border rounded bg-light">
+                <h6 class="text-primary mb-3">
+                    <i class="bi bi-person-badge"></i> Penumpang ${index + 1} - Kursi ${seat}
+                </h6>
+                
+                <input type="hidden" name="penumpang[${index}][kursi]" value="${seat}">
+                
+                <div class="row g-2">
+                    <div class="col-md-6">
+                        <label class="form-label small mb-1">Nama Lengkap <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control form-control-sm passenger-input" 
+                               name="penumpang[${index}][nama]" 
+                               placeholder="Sesuai identitas" 
+                               required>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <label class="form-label small mb-1">No HP/WhatsApp <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control form-control-sm passenger-input" 
+                               name="penumpang[${index}][no_hp]" 
+                               placeholder="08xxxxxxxxxx" 
+                               required>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <label class="form-label small mb-1">Email</label>
+                        <input type="email" class="form-control form-control-sm" 
+                               name="penumpang[${index}][email]" 
+                               placeholder="email@contoh.com">
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <label class="form-label small mb-1">Jenis Kelamin</label>
+                        <select class="form-select form-select-sm" name="penumpang[${index}][jenis_kelamin]">
+                            <option value="">Pilih</option>
+                            <option value="Laki-laki">Laki-laki</option>
+                            <option value="Perempuan">Perempuan</option>
+                        </select>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <label class="form-label small mb-1">Jenis Identitas</label>
+                        <select class="form-select form-select-sm" name="penumpang[${index}][jenis_identitas]">
+                            <option value="KTP">KTP</option>
+                            <option value="SIM">SIM</option>
+                            <option value="Passport">Passport</option>
+                            <option value="Lainnya">Lainnya</option>
+                        </select>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <label class="form-label small mb-1">No Identitas</label>
+                        <input type="text" class="form-control form-control-sm" 
+                               name="penumpang[${index}][no_identitas]" 
+                               placeholder="Nomor KTP/SIM/Passport">
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <label class="form-label small mb-1">Usia</label>
+                        <select class="form-select form-select-sm" name="penumpang[${index}][usia]">
+                            <option value="Dewasa">Dewasa</option>
+                            <option value="Anak-anak">Anak-anak</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+    
+    container.innerHTML = formsHTML;
+    
+    // Tambahkan event listener untuk input validation
+    document.querySelectorAll('.passenger-input').forEach(input => {
+        input.addEventListener('input', updateSubmitButton);
+    });
+}
+
+function updateSubmitButton() {
+    const btnSubmit = document.getElementById('btnSubmit');
+    
+    // Cek apakah kursi sudah dipilih sesuai jumlah
+    if (selectedSeats.length !== maxSeats) {
+        btnSubmit.disabled = true;
+        return;
+    }
+    
+    // Cek apakah semua field required sudah diisi
+    const requiredInputs = document.querySelectorAll('.passenger-input[required]');
+    let allFilled = true;
+    
+    requiredInputs.forEach(input => {
+        if (!input.value.trim()) {
+            allFilled = false;
+        }
+    });
+    
+    btnSubmit.disabled = !allFilled;
 }
 
 // Form validation
 document.getElementById('bookingForm').addEventListener('submit', function(e) {
+    e.preventDefault(); // Prevent default submit
+    
     if (selectedSeats.length !== maxSeats) {
-        e.preventDefault();
         alert('Silakan pilih ' + maxSeats + ' kursi terlebih dahulu!');
         return false;
     }
-});
-
-// Payment method toggle
-document.querySelectorAll('input[name="metode_pembayaran"]').forEach(radio => {
-    radio.addEventListener('change', function() {
-        const metodePembayaran = this.value;
-        document.getElementById('metodePembayaran').value = metodePembayaran;
-        
-        if (metodePembayaran === 'cash') {
-            document.getElementById('paymentInfoCash').classList.remove('d-none');
-            document.getElementById('paymentInfoOnline').classList.add('d-none');
-        } else {
-            document.getElementById('paymentInfoCash').classList.add('d-none');
-            document.getElementById('paymentInfoOnline').classList.remove('d-none');
+    
+    // Validasi semua field required terisi
+    const requiredInputs = document.querySelectorAll('.passenger-input[required]');
+    let allFilled = true;
+    
+    requiredInputs.forEach(input => {
+        if (!input.value.trim()) {
+            allFilled = false;
         }
     });
+    
+    if (!allFilled) {
+        alert('Silakan lengkapi data semua penumpang!');
+        return false;
+    }
+    
+    <?php if (!isset($_SESSION['user_id'])): ?>
+    // Jika belum login, simpan data booking ke session via AJAX
+    const formData = new FormData(this);
+    
+    fetch('save_booking_session.php', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Redirect ke login dengan parameter return
+            window.location.href = 'login.php?redirect=process_booking';
+        } else {
+            alert('Gagal menyimpan data. Silakan coba lagi.');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Terjadi kesalahan. Silakan coba lagi.');
+    });
+    <?php else: ?>
+    // Jika sudah login, submit form langsung
+    this.submit();
+    <?php endif; ?>
+    
+    return false;
 });
+
+// Metode pembayaran sekarang tetap hanya online
+document.getElementById('metodePembayaran').value = 'online';
 </script>
 
 <style>

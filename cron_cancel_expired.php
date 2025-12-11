@@ -10,7 +10,7 @@
 
 require_once __DIR__ . '/config.php';
 
-// Log function
+// Fungsi untuk mencatat log aktivitas cron job
 function logCron($message) {
     $logFile = __DIR__ . '/logs/cron_expired.log';
     $logDir = dirname($logFile);
@@ -26,7 +26,7 @@ function logCron($message) {
 logCron("=== Cron Job Started ===");
 
 try {
-    // Find all expired bookings that are still pending
+    // Cari semua pemesanan yang sudah expired dan masih berstatus pending
     $stmt = $conn->prepare("
         SELECT id, midtrans_order_id, user_id, route_id, tanggal_berangkat
         FROM pemesanan 
@@ -43,7 +43,7 @@ try {
         $conn->beginTransaction();
         
         try {
-            // Update booking status to failed
+            // Update status pemesanan menjadi failed (gagal)
             $stmt = $conn->prepare("
                 UPDATE pemesanan 
                 SET status_pembayaran = 'failed', updated_at = NOW()
@@ -51,7 +51,7 @@ try {
             ");
             $stmt->execute([$booking['id']]);
             
-            // Release the seats
+            // Bebaskan kursi yang dipesan agar bisa dipesan lagi
             $stmt = $conn->prepare("DELETE FROM kursi_terpesan WHERE booking_id = ?");
             $stmt->execute([$booking['id']]);
             

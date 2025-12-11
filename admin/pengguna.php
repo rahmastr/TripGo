@@ -8,7 +8,7 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] != 'admin') {
     exit();
 }
 
-// Handle CRUD Operations
+// Tangani Operasi CRUD
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     if (isset($_POST['action'])) {
         try {
@@ -68,7 +68,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     }
 }
 
-// Get all users
+// Ambil semua pengguna
 $stmt = $conn->query("SELECT * FROM pengguna ORDER BY created_at DESC");
 $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
@@ -183,7 +183,7 @@ include 'includes/navbar.php';
                     <div class="mb-3">
                         <label class="form-label">Password</label>
                         <input type="password" class="form-control" name="password" id="password">
-                        <small class="text-muted" id="passwordHint">Kosongkan jika tidak ingin mengubah password</small>
+                        <small class="text-muted" id="Hint">Kosongkan jika tidak ingin mengubah </small>
                     </div>
                     
                     <div class="mb-3">

@@ -8,7 +8,7 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] != 'admin') {
     exit();
 }
 
-// Handle CRUD Operations
+// Tangani Operasi CRUD
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     if (isset($_POST['action'])) {
         try {
@@ -50,7 +50,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     }
 }
 
-// Get all routes with bus info
+// Ambil semua rute dengan info bus
 $stmt = $conn->query("
     SELECT r.*, b.nama_bus, b.nomor_bus 
     FROM rute r 
@@ -59,7 +59,7 @@ $stmt = $conn->query("
 ");
 $routes = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-// Get all buses for dropdown
+// Ambil semua bus untuk dropdown
 $buses = $conn->query("SELECT * FROM bus ORDER BY nama_bus")->fetchAll(PDO::FETCH_ASSOC);
 
 $page_title = 'Data Rute';

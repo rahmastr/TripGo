@@ -32,6 +32,17 @@ $stmt = $conn->prepare("
 $stmt->execute([$user_id]);
 $bookings = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
+// Fungsi untuk mengambil data penumpang berdasarkan booking_id
+function getPassengersData($conn, $booking_id) {
+    $stmt = $conn->prepare("
+        SELECT * FROM penumpang 
+        WHERE booking_id = ? 
+        ORDER BY nomor_kursi
+    ");
+    $stmt->execute([$booking_id]);
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
+
 // Handle hapus akun
 if (isset($_POST['delete_account']) && $_POST['delete_account'] == 'confirm') {
     try {
@@ -368,6 +379,32 @@ include 'includes/navbar.php';
                         </div>
                     </div>
                 </div>
+                
+                <!-- Data Penumpang -->
+                <div class="row mt-4">
+                    <div class="col-12">
+                        <h6 class="text-primary mb-3"><i class="bi bi-people-fill"></i> Data Penumpang</h6>
+                        <div class="table-responsive">
+                            <table class="table table-sm table-bordered">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Kursi</th>
+                                        <th>Nama Lengkap</th>
+                                        <th>No HP</th>
+                                        <th>Email</th>
+                                        <th>Jenis Kelamin</th>
+                                        <th>Usia</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="passengerTableBody">
+                                    <tr>
+                                        <td colspan="6" class="text-center text-muted">Data akan dimuat...</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Tutup</button>
@@ -422,8 +459,44 @@ function viewBookingDetail(booking) {
     currentBookingCode = booking.booking_code;
     generateQRCode(booking.booking_code);
     
+    // Load data penumpang
+    loadPassengerData(booking.id);
+    
     // Show modal
     new bootstrap.Modal(document.getElementById('bookingDetailModal')).show();
+}
+
+function loadPassengerData(bookingId) {
+    const tbody = document.getElementById('passengerTableBody');
+    tbody.innerHTML = '<tr><td colspan="6" class="text-center"><i class="bi bi-hourglass-split"></i> Memuat data...</td></tr>';
+    
+    // Fetch data penumpang via AJAX
+    fetch('get_passengers.php?booking_id=' + bookingId)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success && data.passengers.length > 0) {
+                let rows = '';
+                data.passengers.forEach(p => {
+                    rows += `
+                        <tr>
+                            <td class="text-center"><span class="badge bg-info">${p.nomor_kursi}</span></td>
+                            <td>${p.nama_lengkap}</td>
+                            <td>${p.no_hp}</td>
+                            <td>${p.email || '-'}</td>
+                            <td>${p.jenis_kelamin || '-'}</td>
+                            <td>${p.usia || '-'}</td>
+                        </tr>
+                    `;
+                });
+                tbody.innerHTML = rows;
+            } else {
+                tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">Tidak ada data penumpang</td></tr>';
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            tbody.innerHTML = '<tr><td colspan="6" class="text-center text-danger">Gagal memuat data</td></tr>';
+        });
 }
 
 function generateQRCode(bookingCode) {
@@ -455,7 +528,7 @@ function downloadQR() {
         format: 'a4'
     });
     
-    // Get QR code as base64
+    // Dapatkan QR code sebagai base64
     const qrDataUrl = qrCanvas.toDataURL('image/png');
     
     // Header
@@ -471,7 +544,7 @@ function downloadQR() {
     doc.setFont(undefined, 'normal');
     doc.text('E-Ticket Bus', 105, 30, { align: 'center' });
     
-    // Reset text color
+    // Setel ulang warna teks
     doc.setTextColor(0, 0, 0);
     
     // Booking Code

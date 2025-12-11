@@ -2,7 +2,7 @@
 require_once 'config.php';
 require_once 'midtrans/Midtrans.php';
 
-// Set Midtrans configuration
+// Set konfigurasi Midtrans
 Midtrans::$serverKey = MIDTRANS_SERVER_KEY;
 Midtrans::$clientKey = MIDTRANS_CLIENT_KEY;
 Midtrans::$isProduction = MIDTRANS_IS_PRODUCTION;
@@ -15,7 +15,7 @@ if (!isset($_SESSION['user_id'])) {
     exit();
 }
 
-// Validasi POST data
+// Validasi data POST
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     header('Location: index.php');
     exit();
@@ -27,7 +27,15 @@ $tanggal_berangkat = $_POST['tanggal_berangkat'];
 $jumlah_penumpang = (int)$_POST['jumlah_penumpang'];
 $kursi_dipilih = $_POST['kursi_dipilih'];
 $total_harga = (float)$_POST['total_harga'];
-$metode_pembayaran = $_POST['metode_pembayaran'] ?? 'cash'; // cash or online
+$metode_pembayaran = $_POST['metode_pembayaran'] ?? 'cash'; // cash atau online
+$penumpang_data = $_POST['penumpang'] ?? []; // Data penumpang
+
+// Validasi data penumpang
+if (empty($penumpang_data) || count($penumpang_data) !== $jumlah_penumpang) {
+    $_SESSION['error'] = 'Data penumpang tidak lengkap!';
+    header('Location: booking.php?' . http_build_query($_GET));
+    exit();
+}
 
 try {
     $conn->beginTransaction();
@@ -53,15 +61,15 @@ try {
         throw new Exception('Maaf, ada kursi yang sudah dipesan oleh pengguna lain. Silakan pilih kursi lain.');
     }
     
-    // Generate random alphanumeric booking code
+    // Generate kode booking acak alfanumerik
     $booking_code = 'TG' . strtoupper(substr(str_shuffle('ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'), 0, 8));
     
-    // Get user data for Midtrans
+    // Ambil data user untuk Midtrans
     $stmt = $conn->prepare("SELECT nama_lengkap, email, no_hp FROM pengguna WHERE id = ?");
     $stmt->execute([$user_id]);
     $user = $stmt->fetch(PDO::FETCH_ASSOC);
     
-    // Get route data for transaction details
+    // Ambil data rute untuk detail transaksi
     $stmt = $conn->prepare("
         SELECT r.*, b.nama_bus, b.nomor_bus 
         FROM rute r 
@@ -71,14 +79,14 @@ try {
     $stmt->execute([$route_id]);
     $route = $stmt->fetch(PDO::FETCH_ASSOC);
     
-    // Determine payment status and settings
+    // Tentukan status pembayaran dan pengaturan
     $status_pembayaran = 'pending';
     $is_offline = 1;
     $snap_token = null;
     $midtrans_order_id = $booking_code;
     
     if ($metode_pembayaran === 'online') {
-        // Create Midtrans transaction
+        // Buat transaksi Midtrans
         try {
             $transaction_details = array(
                 'order_id' => $booking_code,
@@ -158,6 +166,28 @@ try {
     
     foreach ($kursi_array as $kursi) {
         $stmt->execute([$booking_id, $route_id, $tanggal_berangkat, trim($kursi)]);
+    }
+    
+    // Insert data penumpang
+    $stmt = $conn->prepare("
+        INSERT INTO penumpang (
+            booking_id, nomor_kursi, nama_lengkap, no_identitas, 
+            jenis_identitas, no_hp, email, jenis_kelamin, usia
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ");
+    
+    foreach ($penumpang_data as $penumpang) {
+        $stmt->execute([
+            $booking_id,
+            $penumpang['kursi'] ?? '',
+            $penumpang['nama'] ?? '',
+            $penumpang['no_identitas'] ?? null,
+            $penumpang['jenis_identitas'] ?? 'KTP',
+            $penumpang['no_hp'] ?? '',
+            $penumpang['email'] ?? null,
+            $penumpang['jenis_kelamin'] ?? null,
+            $penumpang['usia'] ?? 'Dewasa'
+        ]);
     }
     
     $conn->commit();

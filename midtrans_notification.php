@@ -2,11 +2,11 @@
 require_once 'config.php';
 require_once 'midtrans/Midtrans.php';
 
-// Set Midtrans configuration
+// Set konfigurasi Midtrans
 Midtrans::$serverKey = MIDTRANS_SERVER_KEY;
 Midtrans::$isProduction = MIDTRANS_IS_PRODUCTION;
 
-// Log function for debugging
+// Fungsi log untuk debugging
 function logNotification($message) {
     $logFile = __DIR__ . '/logs/midtrans_notification.log';
     $logDir = dirname($logFile);
@@ -20,7 +20,7 @@ function logNotification($message) {
 }
 
 try {
-    // Get notification data from Midtrans
+    // Ambil data notifikasi dari Midtrans
     $json = file_get_contents('php://input');
     logNotification("=".str_repeat("=", 50));
     logNotification("NEW NOTIFICATION RECEIVED");
@@ -44,7 +44,7 @@ try {
     logNotification("Parsed - Payment Type: $paymentType");
     logNotification("Parsed - Gross Amount: $grossAmount");
     
-    // Find booking by order_id
+    // Cari booking berdasarkan order_id
     $stmt = $conn->prepare("SELECT * FROM pemesanan WHERE midtrans_order_id = ?");
     $stmt->execute([$orderId]);
     $booking = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -58,7 +58,7 @@ try {
     
     logNotification("Current booking status: {$booking['status_pembayaran']}");
     
-    // Determine payment status
+    // Tentukan status pembayaran
     $newStatus = $booking['status_pembayaran'];
     
     logNotification("Evaluating transaction status: $transactionStatus");
@@ -86,7 +86,7 @@ try {
     
     logNotification("New status will be: $newStatus");
     
-    // Update booking status
+    // Update status booking
     if ($newStatus !== $booking['status_pembayaran']) {
         logNotification("Status changed from '{$booking['status_pembayaran']}' to '$newStatus', updating database...");
         
@@ -105,14 +105,14 @@ try {
             logNotification("✗ Failed to update booking #{$booking['id']}");
         }
         
-        // If payment is successful, update is_offline to 0
+        // Jika pembayaran berhasil, perbarui is_offline menjadi 0
         if ($newStatus === 'success') {
             $stmt = $conn->prepare("UPDATE pemesanan SET is_offline = 0 WHERE id = ?");
             $stmt->execute([$booking['id']]);
             logNotification("✓ Payment confirmed, set is_offline = 0 for booking #{$booking['id']}");
         }
         
-        // If payment failed, release the seats
+        // Jika pembayaran gagal, lepaskan kursi yang dipesan
         if ($newStatus === 'failed') {
             $stmt = $conn->prepare("DELETE FROM kursi_terpesan WHERE booking_id = ?");
             $stmt->execute([$booking['id']]);
@@ -122,7 +122,7 @@ try {
         logNotification("No status change needed (already '$newStatus')");
     }
     
-    // Send success response to Midtrans
+    // Kirim respons sukses ke Midtrans
     http_response_code(200);
     echo json_encode(['status' => 'success', 'message' => 'Notification processed']);
     logNotification("✓✓✓ Notification processed successfully ✓✓✓");

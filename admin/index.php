@@ -339,7 +339,7 @@ const paymentChart = new Chart(paymentCtx, {
     }
 });
 
-// Revenue by Payment Method Chart (Bar)
+// Grafik Pendapatan Berdasarkan Metode Pembayaran (Bar)
 const revenueCtx = document.getElementById('revenueChart').getContext('2d');
 const revenueChart = new Chart(revenueCtx, {
     type: 'bar',

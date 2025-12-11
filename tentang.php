@@ -2,7 +2,7 @@
 // Halaman Tentang Kami TripGo
 require_once 'config.php';
 
-// Set page title
+// Set judul halaman
 $page_title = 'Tentang Kami - ' . SITE_NAME;
 $navbar_fixed = false;
 

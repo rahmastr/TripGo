@@ -10,7 +10,7 @@ if (isset($_SESSION['user_id'])) {
 $error = '';
 $success = '';
 
-// Handle registration
+// Handle proses registrasi
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $nama_lengkap = trim($_POST['nama_lengkap']);
     $email = trim($_POST['email']);
@@ -64,17 +64,17 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     
     <style>
         body {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #059669 0%, #047857 100%);
             min-height: 100vh;
             display: flex;
             align-items: center;
             justify-content: center;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            padding: 40px 20px;
+            padding: 20px;
         }
         
         .register-container {
-            max-width: 500px;
+            max-width: 400px;
             width: 100%;
         }
         
@@ -86,48 +86,98 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         }
         
         .register-header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #059669 0%, #047857 100%);
             color: white;
-            padding: 30px;
+            padding: 15px 25px;
             text-align: center;
         }
         
         .register-header h1 {
-            font-size: 1.8rem;
+            font-size: 1.3rem;
             font-weight: bold;
-            margin-bottom: 5px;
+            margin-bottom: 3px;
+        }
+        
+        .register-header p {
+            opacity: 0.9;
+            margin: 0;
+            font-size: 0.85rem;
         }
         
         .register-body {
-            padding: 40px 30px;
+            padding: 15px 25px;
+        }
+        
+        .form-label {
+            margin-bottom: 0.25rem;
+            font-size: 0.85rem;
         }
         
         .form-control {
-            padding: 12px 15px;
+            padding: 7px 10px;
             border-radius: 10px;
             border: 2px solid #e0e0e0;
             transition: all 0.3s;
+            font-size: 0.85rem;
         }
         
         .form-control:focus {
-            border-color: #667eea;
-            box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+            border-color: #059669;
+            box-shadow: 0 0 0 0.2rem rgba(5, 150, 105, 0.25);
+        }
+        
+        .input-group-text {
+            background: transparent;
+            border: 2px solid #e0e0e0;
+            border-right: none;
+            border-radius: 10px 0 0 10px;
+            padding: 0.375rem 0.75rem;
+        }
+        
+        .input-group .form-control {
+            border-left: none;
+            border-radius: 0 10px 10px 0;
         }
         
         .btn-register {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #059669 0%, #047857 100%);
             color: white;
-            padding: 12px;
+            padding: 8px;
             border: none;
             border-radius: 10px;
             font-weight: 600;
             transition: all 0.3s;
+            font-size: 0.9rem;
         }
         
         .btn-register:hover {
+            background: linear-gradient(135deg, #047857 0%, #065f46 100%);
             transform: translateY(-2px);
-            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+            box-shadow: 0 10px 20px rgba(5, 150, 105, 0.3);
             color: white;
+        }
+        
+        .divider {
+            text-align: center;
+            margin: 15px 0;
+            position: relative;
+        }
+        
+        .divider::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 50%;
+            width: 100%;
+            height: 1px;
+            background: #e0e0e0;
+        }
+        
+        .divider span {
+            background: white;
+            padding: 0 15px;
+            position: relative;
+            color: #999;
         }
         
         .alert {
@@ -139,9 +189,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     <div class="register-container">
         <div class="register-card">
             <div class="register-header">
-                <i class="bi bi-person-plus" style="font-size: 2.5rem;"></i>
-                <h1>Daftar Akun</h1>
-                <p class="mb-0">Buat akun untuk mulai memesan tiket</p>
+                <i class="bi bi-person-plus" style="font-size: 1.5rem;"></i>
+                <h1 style="font-size: 1.3rem; margin-bottom: 3px;">Daftar Akun</h1>
+                <p style="font-size: 0.85rem;"><?php echo SITE_NAME; ?></p>
             </div>
             
             <div class="register-body">
@@ -164,48 +214,70 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 </div>
                 <?php else: ?>
                 <form method="POST" action="">
-                    <div class="mb-3">
+                    <div class="mb-2">
                         <label class="form-label">Nama Lengkap</label>
-                        <input type="text" class="form-control" name="nama_lengkap" placeholder="Nama lengkap Anda" required autofocus value="<?php echo isset($_POST['nama_lengkap']) ? htmlspecialchars($_POST['nama_lengkap']) : ''; ?>">
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text">
+                                <i class="bi bi-person"></i>
+                            </span>
+                            <input type="text" class="form-control" name="nama_lengkap" placeholder="Nama lengkap Anda" required autofocus value="<?php echo isset($_POST['nama_lengkap']) ? htmlspecialchars($_POST['nama_lengkap']) : ''; ?>">
+                        </div>
                     </div>
                     
-                    <div class="mb-3">
+                    <div class="mb-2">
                         <label class="form-label">Email</label>
-                        <input type="email" class="form-control" name="email" placeholder="nama@email.com" required value="<?php echo isset($_POST['email']) ? htmlspecialchars($_POST['email']) : ''; ?>">
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text">
+                                <i class="bi bi-envelope"></i>
+                            </span>
+                            <input type="email" class="form-control" name="email" placeholder="nama@email.com" required value="<?php echo isset($_POST['email']) ? htmlspecialchars($_POST['email']) : ''; ?>">
+                        </div>
                     </div>
                     
-                    <div class="mb-3">
+                    <div class="mb-2">
                         <label class="form-label">No HP / WhatsApp</label>
-                        <input type="text" class="form-control" name="no_hp" placeholder="08xxxxxxxxxx" required value="<?php echo isset($_POST['no_hp']) ? htmlspecialchars($_POST['no_hp']) : ''; ?>">
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text">
+                                <i class="bi bi-phone"></i>
+                            </span>
+                            <input type="text" class="form-control" name="no_hp" placeholder="08xxxxxxxxxx" required value="<?php echo isset($_POST['no_hp']) ? htmlspecialchars($_POST['no_hp']) : ''; ?>">
+                        </div>
                     </div>
                     
-                    <div class="mb-3">
+                    <div class="mb-2">
                         <label class="form-label">Password</label>
-                        <input type="password" class="form-control" name="password" placeholder="Minimal 6 karakter" required>
-                        <small class="text-muted">Minimal 6 karakter</small>
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text">
+                                <i class="bi bi-lock"></i>
+                            </span>
+                            <input type="password" class="form-control" name="password" placeholder="Minimal 6 karakter" required>
+                        </div>
                     </div>
                     
-                    <div class="mb-4">
+                    <div class="mb-2">
                         <label class="form-label">Konfirmasi Password</label>
-                        <input type="password" class="form-control" name="confirm_password" placeholder="Ulangi password" required>
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text">
+                                <i class="bi bi-lock-fill"></i>
+                            </span>
+                            <input type="password" class="form-control" name="confirm_password" placeholder="Ulangi password" required>
+                        </div>
                     </div>
                     
-                    <button type="submit" class="btn btn-register w-100 mb-3">
+                    <button type="submit" class="btn btn-register w-100 mb-2 mt-2">
                         <i class="bi bi-person-plus"></i> Daftar
                     </button>
                     
+                    <div class="divider" style="margin: 8px 0;">
+                        <span style="font-size: 0.8rem;">atau</span>
+                    </div>
+                    
                     <div class="text-center">
-                        <p class="mb-0">Sudah punya akun? <a href="login.php" class="text-decoration-none fw-bold">Login</a></p>
+                        <p class="mb-0" style="font-size: 0.85rem;">Sudah punya akun? <a href="login.php" class="text-decoration-none fw-bold" style="color: #059669;">Login</a></p>
                     </div>
                 </form>
                 <?php endif; ?>
             </div>
-        </div>
-        
-        <div class="text-center mt-4">
-            <a href="index.php" class="text-white text-decoration-none">
-                <i class="bi bi-arrow-left"></i> Kembali ke Beranda
-            </a>
         </div>
     </div>
     
