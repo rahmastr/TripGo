@@ -202,7 +202,7 @@ $team = [
         <div class="container py-5 text-center">
             <h2 class="display-5 fw-bold mb-4">Bergabunglah dengan Kami</h2>
             <p class="lead mb-4">Mulai perjalanan Anda bersama TripGo hari ini!</p>
-            <a href="cari-tiket.html" class="btn btn-light btn-lg px-5">
+            <a href="index.php" class="btn btn-light btn-lg px-5">
                 <i class="bi bi-search"></i> Cari Tiket Sekarang
             </a>
         </div>

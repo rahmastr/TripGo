@@ -171,9 +171,9 @@ try {
     // Insert data penumpang
     $stmt = $conn->prepare("
         INSERT INTO penumpang (
-            booking_id, nomor_kursi, nama_lengkap, no_identitas, 
-            jenis_identitas, no_hp, email, jenis_kelamin, usia
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            booking_id, nomor_kursi, nama_lengkap, 
+            no_hp, email, jenis_kelamin, usia
+        ) VALUES (?, ?, ?, ?, ?, ?, ?)
     ");
     
     foreach ($penumpang_data as $penumpang) {
@@ -181,8 +181,6 @@ try {
             $booking_id,
             $penumpang['kursi'] ?? '',
             $penumpang['nama'] ?? '',
-            $penumpang['no_identitas'] ?? null,
-            $penumpang['jenis_identitas'] ?? 'KTP',
             $penumpang['no_hp'] ?? '',
             $penumpang['email'] ?? null,
             $penumpang['jenis_kelamin'] ?? null,

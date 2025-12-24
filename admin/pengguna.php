@@ -80,11 +80,10 @@ include 'includes/navbar.php';
 <div class="page-header">
     <div class="d-flex justify-content-between align-items-center">
         <div>
-            <h2><i class="bi bi-people"></i> Data Pengguna</h2>
-            <p>Kelola pengguna TripGo (Customer & Admin)</p>
+            <h2> Data Pengguna</h2>
         </div>
         <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#userModal" onclick="resetForm()">
-            <i class="bi bi-plus-circle"></i> Tambah Pengguna
+            <i class="bi bi-plus-circle"></i> Tambah Admin
         </button>
     </div>
 </div>
@@ -136,13 +135,19 @@ include 'includes/navbar.php';
                 <td><?php echo date('d/m/Y H:i', strtotime($user['created_at'])); ?></td>
                 <td>
                     <div class="action-buttons">
-                        <button class="btn btn-sm btn-warning" onclick="editUser(<?php echo htmlspecialchars(json_encode($user)); ?>)">
-                            <i class="bi bi-pencil"></i> Edit
-                        </button>
-                        <?php if ($user['id'] != $_SESSION['user_id']): ?>
-                        <button class="btn btn-sm btn-danger" onclick="deleteUser(<?php echo $user['id']; ?>, '<?php echo htmlspecialchars($user['nama_lengkap']); ?>')">
-                            <i class="bi bi-trash"></i> Hapus
-                        </button>
+                        <?php if ($user['role'] == 'admin'): ?>
+                            <button class="btn btn-sm btn-warning" onclick="editUser(<?php echo htmlspecialchars(json_encode($user)); ?>)">
+                                <i class="bi bi-pencil"></i> Edit
+                            </button>
+                            <?php if ($user['id'] != $_SESSION['user_id']): ?>
+                            <button class="btn btn-sm btn-danger" onclick="deleteUser(<?php echo $user['id']; ?>, '<?php echo htmlspecialchars($user['nama_lengkap']); ?>')">
+                                <i class="bi bi-trash"></i> Hapus
+                            </button>
+                            <?php endif; ?>
+                        <?php else: ?>
+                            <button class="btn btn-sm btn-danger" onclick="deleteUser(<?php echo $user['id']; ?>, '<?php echo htmlspecialchars($user['nama_lengkap']); ?>')">
+                                <i class="bi bi-trash"></i> Hapus
+                            </button>
                         <?php endif; ?>
                     </div>
                 </td>
@@ -182,14 +187,13 @@ include 'includes/navbar.php';
                     
                     <div class="mb-3">
                         <label class="form-label">Password</label>
-                        <input type="password" class="form-control" name="password" id="password">
-                        <small class="text-muted" id="Hint">Kosongkan jika tidak ingin mengubah </small>
+                        <input type="password" class="form-control" name="password" id="password" required>
+                        <small class="text-muted" id="passwordHint" style="display: none;">Kosongkan jika tidak ingin mengubah</small>
                     </div>
                     
                     <div class="mb-3">
                         <label class="form-label">Role</label>
                         <select class="form-select" name="role" id="role" required>
-                            <option value="customer">Customer</option>
                             <option value="admin">Admin</option>
                         </select>
                     </div>
@@ -209,13 +213,35 @@ include 'includes/navbar.php';
     <input type="hidden" name="id" id="delete_id">
 </form>
 
+<!-- Modal Konfirmasi Hapus -->
+<div class="modal fade" id="deleteModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title"><i class="bi bi-exclamation-triangle"></i> Konfirmasi Hapus</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Apakah Anda ingin menghapus pengguna <strong id="deleteUserName"></strong>?</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Tidak</button>
+                <button type="button" class="btn btn-danger" onclick="confirmDelete()">Ya</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
+let deleteIdTemp = null;
+
 function resetForm() {
     document.getElementById('userForm').reset();
     document.getElementById('action').value = 'create';
-    document.getElementById('modalTitle').textContent = 'Tambah Pengguna';
+    document.getElementById('modalTitle').textContent = 'Tambah Admin';
     document.getElementById('password').required = true;
     document.getElementById('passwordHint').style.display = 'none';
+    document.getElementById('role').value = 'admin';
 }
 
 function editUser(user) {
@@ -234,8 +260,15 @@ function editUser(user) {
 }
 
 function deleteUser(id, nama) {
-    if (confirm('Yakin ingin menghapus pengguna ' + nama + '?')) {
-        document.getElementById('delete_id').value = id;
+    deleteIdTemp = id;
+    document.getElementById('deleteUserName').textContent = nama;
+    const modal = new bootstrap.Modal(document.getElementById('deleteModal'));
+    modal.show();
+}
+
+function confirmDelete() {
+    if (deleteIdTemp) {
+        document.getElementById('delete_id').value = deleteIdTemp;
         document.getElementById('deleteForm').submit();
     }
 }

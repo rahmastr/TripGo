@@ -89,8 +89,7 @@ include 'includes/navbar.php';
 ?>
 
 <div class="page-header">
-    <h2><i class="bi bi-speedometer2"></i> Dashboard</h2>
-    <p>Ringkasan data dan statistik TripGo</p>
+    <h2>Dashboard</h2>
 </div>
 
 <!-- Stats Cards Row -->

@@ -29,108 +29,6 @@ if (isset($_GET['action']) && $_GET['action'] == 'delete' && isset($_GET['id']))
     exit();
 }
 
-// Handle pemesanan tunai
-if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action']) && $_POST['action'] == 'cash_booking') {
-    try {
-        $conn->beginTransaction();
-        
-        $nama_lengkap = trim($_POST['nama_lengkap']);
-        $email = trim($_POST['email']);
-        $no_hp = trim($_POST['no_hp']);
-        $route_id = $_POST['route_id'];
-        $tanggal_berangkat = $_POST['tanggal_berangkat'];
-        $jumlah_penumpang = $_POST['jumlah_penumpang'];
-        $kursi_dipilih = $_POST['kursi_dipilih'];
-        $total_harga = $_POST['total_harga'];
-        $penumpang_data = $_POST['penumpang'] ?? [];
-        
-        // Validasi data penumpang
-        if (empty($penumpang_data) || count($penumpang_data) !== (int)$jumlah_penumpang) {
-            throw new Exception('Data penumpang tidak lengkap!');
-        }
-        
-        // Cek apakah user dengan email ini sudah ada
-        $stmt = $conn->prepare("SELECT id FROM pengguna WHERE email = ?");
-        $stmt->execute([$email]);
-        $existing_user = $stmt->fetch(PDO::FETCH_ASSOC);
-        
-        if ($existing_user) {
-            // Gunakan user yang sudah ada
-            $user_id = $existing_user['id'];
-        } else {
-            // Buat user baru dengan password default
-            $default_password = password_hash('password123', PASSWORD_DEFAULT);
-            $stmt = $conn->prepare("
-                INSERT INTO pengguna (nama_lengkap, email, no_hp, password, role, created_at)
-                VALUES (?, ?, ?, ?, 'customer', NOW())
-            ");
-            $stmt->execute([$nama_lengkap, $email, $no_hp, $default_password]);
-            $user_id = $conn->lastInsertId();
-        }
-        
-        // Generate booking code (format seperti Midtrans)
-        $order_id = 'TG-' . strtoupper(substr(md5(uniqid(rand(), true)), 0, 16));
-        
-        // Insert pemesanan
-        $stmt = $conn->prepare("
-            INSERT INTO pemesanan (
-                user_id, route_id, tanggal_berangkat, jumlah_penumpang, 
-                kursi_dipilih, total_harga, midtrans_order_id, 
-                status_pembayaran, is_offline, created_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, 'success', 1, NOW())
-        ");
-        $stmt->execute([
-            $user_id, $route_id, $tanggal_berangkat, $jumlah_penumpang,
-            $kursi_dipilih, $total_harga, $order_id
-        ]);
-        
-        $booking_id = $conn->lastInsertId();
-        
-        // Insert kursi terpesan
-        $kursi_array = array_map('trim', explode(',', $kursi_dipilih));
-        $stmt = $conn->prepare("
-            INSERT INTO kursi_terpesan (route_id, tanggal_berangkat, nomor_kursi, booking_id)
-            VALUES (?, ?, ?, ?)
-        ");
-        
-        foreach ($kursi_array as $kursi) {
-            $stmt->execute([$route_id, $tanggal_berangkat, $kursi, $booking_id]);
-        }
-        
-        // Insert data penumpang
-        $stmt = $conn->prepare("
-            INSERT INTO penumpang (
-                booking_id, nomor_kursi, nama_lengkap, no_identitas, 
-                jenis_identitas, no_hp, email, jenis_kelamin, usia
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ");
-        
-        foreach ($penumpang_data as $penumpang) {
-            $stmt->execute([
-                $booking_id,
-                $penumpang['kursi'] ?? '',
-                $penumpang['nama'] ?? '',
-                $penumpang['no_identitas'] ?? null,
-                $penumpang['jenis_identitas'] ?? 'KTP',
-                $penumpang['no_hp'] ?? '',
-                $penumpang['email'] ?? null,
-                $penumpang['jenis_kelamin'] ?? null,
-                $penumpang['usia'] ?? 'Dewasa'
-            ]);
-        }
-        
-        $conn->commit();
-        $_SESSION['success'] = 'Pemesanan tunai berhasil dibuat! Kode Booking: ' . $order_id . ' untuk ' . $nama_lengkap;
-    } catch (Exception $e) {
-        $conn->rollBack();
-        $_SESSION['error'] = 'Error membuat pemesanan: ' . $e->getMessage();
-    }
-    header('Location: pemesanan.php');
-    exit();
-}
-
-
-
 // Ambil semua pemesanan dengan detail (menghapus kolom verified_by yang tidak ada)
 $stmt = $conn->query("
     SELECT 
@@ -168,13 +66,9 @@ include 'includes/navbar.php';
 <div class="page-header">
     <div class="d-flex justify-content-between align-items-center">
         <div>
-            <h2><i class="bi bi-ticket-perforated"></i> Data Pemesanan</h2>
-            <p>Kelola pemesanan tiket bus TripGo</p>
+            <h2>Data Pemesanan</h2>
         </div>
         <div>
-            <button class="btn btn-primary me-2" data-bs-toggle="modal" data-bs-target="#cashBookingModal">
-                <i class="bi bi-cash-coin"></i> Pemesanan Tunai
-            </button>
             <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#scanQrModal">
                 <i class="bi bi-qr-code-scan"></i> Scan QR
             </button>
@@ -206,7 +100,6 @@ include 'includes/navbar.php';
                     <th width="150"><small>Rute</small></th>
                     <th width="70"><small>Kursi</small></th>
                     <th width="100"><small>Harga</small></th>
-                    <th width="70"><small>Payment</small></th>
                     <th width="80"><small>Status</small></th>
                     <th width="60"><small>Aksi</small></th>
                 </tr>
@@ -214,7 +107,7 @@ include 'includes/navbar.php';
             <tbody>
                 <?php if (empty($bookings)): ?>
                 <tr>
-                    <td colspan="8" class="text-center py-3">
+                    <td colspan="7" class="text-center py-3">
                         <i class="bi bi-inbox fs-4 text-muted"></i>
                         <p class="text-muted mb-0 small">Belum ada data pemesanan</p>
                     </td>
@@ -231,16 +124,9 @@ include 'includes/navbar.php';
                         <td><span class="badge bg-secondary" style="font-size: 0.7rem;"><?php echo htmlspecialchars($booking['kursi_dipilih']); ?></span></td>
                         <td><small><strong>Rp <?php echo number_format($booking['total_harga'], 0, ',', '.'); ?></strong></small></td>
                         <td>
-                            <?php if ($booking['is_offline']): ?>
-                                <span class="badge bg-info" style="font-size: 0.7rem;">Tunai</span>
-                            <?php else: ?>
-                                <span class="badge bg-primary" style="font-size: 0.7rem;">Online</span>
-                            <?php endif; ?>
-                        </td>
-                        <td>
                             <?php
-                            // Cek status berdasarkan QR scan atau pembayaran tunai
-                            if ($booking['qr_used'] == 1 || $booking['is_offline'] == 1):
+                            // Cek status berdasarkan QR scan
+                            if ($booking['qr_used'] == 1):
                             ?>
                                 <span class="badge bg-success" style="font-size: 0.7rem;">
                                     <i class="bi bi-check-circle-fill"></i> Yes
@@ -339,120 +225,22 @@ include 'includes/navbar.php';
     </div>
 </div>
 
-<!-- Modal Pemesanan Tunai -->
-<div class="modal fade" id="cashBookingModal" tabindex="-1">
-    <div class="modal-dialog modal-xl">
+<!-- Modal Konfirmasi Hapus -->
+<div class="modal fade" id="deleteModal" tabindex="-1">
+    <div class="modal-dialog">
         <div class="modal-content">
-            <div class="modal-header bg-primary text-white">
-                <h5 class="modal-title"><i class="bi bi-cash-coin"></i> Pemesanan Tunai Baru</h5>
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title"><i class="bi bi-exclamation-triangle"></i> Konfirmasi Hapus</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
-            <form method="POST" id="cashBookingForm">
-                <input type="hidden" name="action" value="cash_booking">
-                <div class="modal-body">
-                    <div class="row">
-                        <!-- Form Input -->
-                        <div class="col-md-7">
-                            <h6 class="text-primary mb-3"><i class="bi bi-person-fill"></i> Informasi Penumpang</h6>
-                            <div class="row">
-                                <div class="col-md-12 mb-3">
-                                    <label class="form-label">Nama Lengkap <span class="text-danger">*</span></label>
-                                    <input type="text" class="form-control" name="nama_lengkap" id="nama_lengkap" 
-                                           placeholder="Masukkan nama lengkap penumpang" required>
-                                </div>
-                                <div class="col-md-6 mb-3">
-                                    <label class="form-label">Email <span class="text-danger">*</span></label>
-                                    <input type="email" class="form-control" name="email" id="email" 
-                                           placeholder="contoh@email.com" required>
-                                </div>
-                                <div class="col-md-6 mb-3">
-                                    <label class="form-label">No HP <span class="text-danger">*</span></label>
-                                    <input type="text" class="form-control" name="no_hp" id="no_hp" 
-                                           placeholder="08xxxxxxxxxx" required>
-                                </div>
-                            </div>
-
-                            <h6 class="text-primary mb-3 mt-4"><i class="bi bi-bus-front"></i> Informasi Perjalanan</h6>
-                            <div class="mb-3">
-                                <label class="form-label">Pilih Rute <span class="text-danger">*</span></label>
-                                <select class="form-select" name="route_id" id="route_select" required onchange="loadAvailableDates()">
-                                    <option value="">-- Pilih Rute --</option>
-                                    <?php foreach ($routes as $route): ?>
-                                        <option value="<?php echo $route['id']; ?>" data-price="<?php echo $route['harga']; ?>">
-                                            <?php echo htmlspecialchars($route['display_name']); ?> - Rp <?php echo number_format($route['harga'], 0, ',', '.'); ?>
-                                        </option>
-                                    <?php endforeach; ?>
-                                </select>
-                            </div>
-
-                            <div class="row">
-                                <div class="col-md-6 mb-3">
-                                    <label class="form-label">Tanggal Berangkat <span class="text-danger">*</span></label>
-                                    <select class="form-select" name="tanggal_berangkat" id="tanggal_berangkat_select" onchange="loadSeats()" style="display: none;">
-                                        <option value="">-- Pilih Tanggal --</option>
-                                    </select>
-                                    <input type="date" class="form-control" name="tanggal_berangkat_manual" id="tanggal_berangkat_manual" 
-                                           min="<?php echo date('Y-m-d'); ?>" onchange="loadSeats()" style="display: none;">
-                                    <small class="text-muted" id="tanggal_hint">Pilih rute terlebih dahulu</small>
-                                </div>
-                                <div class="col-md-6 mb-3">
-                                    <label class="form-label">Jumlah Penumpang</label>
-                                    <input type="number" class="form-control" name="jumlah_penumpang" id="jumlah_penumpang" 
-                                           value="1" min="1" readonly>
-                                </div>
-                            </div>
-
-                            <div class="mb-3">
-                                <label class="form-label">Kursi Dipilih <span class="text-danger">*</span></label>
-                                <input type="text" class="form-control" name="kursi_dipilih" id="kursi_dipilih" 
-                                       placeholder="Pilih kursi dari peta kursi" readonly>
-                                <small class="text-muted">Klik pada peta kursi di samping untuk memilih</small>
-                            </div>
-                            
-                            <!-- Data Penumpang Dinamis -->
-                            <div id="passengerFormsContainer" class="mb-3">
-                                <!-- Forms akan di-generate di sini -->
-                            </div>
-
-                            <div class="mb-3">
-                                <label class="form-label">Total Harga</label>
-                                <input type="number" class="form-control form-control-lg fw-bold text-primary" 
-                                       name="total_harga" id="total_harga" readonly value="0">
-                            </div>
-
-                            <div class="alert alert-info">
-                                <i class="bi bi-info-circle"></i> 
-                                <strong>Pembayaran Tunai:</strong> Pemesanan ini akan langsung dikonfirmasi sebagai sudah dibayar (cash).
-                            </div>
-                        </div>
-
-                        <!-- Seat Map -->
-                        <div class="col-md-5">
-                            <h6 class="text-primary mb-3"><i class="bi bi-grid-3x3"></i> Peta Kursi</h6>
-                            <div id="seatMap" style="display: none;">
-                                <div class="mb-3">
-                                    <span class="badge bg-secondary me-2">Tersedia</span>
-                                    <span class="badge bg-danger me-2">Terisi</span>
-                                    <span class="badge bg-success">Dipilih</span>
-                                </div>
-                                <div id="seatGrid" class="mb-3"></div>
-                            </div>
-                            <div id="seatMapPlaceholder" class="text-center text-muted py-5">
-                                <i class="bi bi-arrow-left fs-1"></i>
-                                <p class="mt-2">Pilih rute dan tanggal untuk melihat peta kursi</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
-                        <i class="bi bi-x-circle"></i> Batal
-                    </button>
-                    <button type="submit" class="btn btn-primary" id="submitCashBooking" onclick="console.log('Button clicked!');">
-                        <i class="bi bi-check-circle"></i> Buat Pemesanan Tunai
-                    </button>
-                </div>
-            </form>
+            <div class="modal-body">
+                <p>Apakah Anda ingin menghapus pemesanan dengan kode booking <strong id="deleteBookingCode"></strong>?</p>
+                <input type="hidden" id="deleteBookingId" value="">
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Tidak</button>
+                <button type="button" class="btn btn-danger" onclick="confirmDelete()">Ya</button>
+            </div>
         </div>
     </div>
 </div>
@@ -803,7 +591,6 @@ function viewDetail(booking) {
                         <h6 class="text-muted"><i class="bi bi-receipt"></i> Informasi Pembayaran</h6>
                         <table class="table table-sm">
                             <tr><td><strong>Booking Code</strong></td><td><span class="text-primary fw-bold">${booking.booking_code}</span></td></tr>
-                            <tr><td><strong>Metode</strong></td><td>${booking.is_offline ? '<span class="badge bg-info">Tunai</span>' : '<span class="badge bg-primary">Online</span>'}</td></tr>
                             <tr><td><strong>Jumlah</strong></td><td>${booking.jumlah_penumpang} penumpang</td></tr>
                             <tr><td><strong>Kursi</strong></td><td><span class="badge bg-secondary">${booking.kursi_dipilih}</span></td></tr>
                             <tr><td><strong>Total</strong></td><td><strong class="text-success">Rp ${parseInt(booking.total_harga).toLocaleString('id-ID')}</strong></td></tr>
@@ -849,7 +636,6 @@ function viewDetail(booking) {
                         <h6 class="text-muted"><i class="bi bi-receipt"></i> Informasi Pembayaran</h6>
                         <table class="table table-sm">
                             <tr><td><strong>Booking Code</strong></td><td><span class="text-primary fw-bold">${booking.booking_code}</span></td></tr>
-                            <tr><td><strong>Metode</strong></td><td>${booking.is_offline ? '<span class="badge bg-info">Tunai</span>' : '<span class="badge bg-primary">Online</span>'}</td></tr>
                             <tr><td><strong>Jumlah</strong></td><td>${booking.jumlah_penumpang} penumpang</td></tr>
                             <tr><td><strong>Kursi</strong></td><td><span class="badge bg-secondary">${booking.kursi_dipilih}</span></td></tr>
                             <tr><td><strong>Total</strong></td><td><strong class="text-success">Rp ${parseInt(booking.total_harga).toLocaleString('id-ID')}</strong></td></tr>
@@ -882,113 +668,20 @@ function viewDetail(booking) {
 }
 
 function deleteBooking(id, bookingCode) {
-    if (confirm('Apakah Anda yakin ingin menghapus pemesanan dengan kode booking: ' + bookingCode + '?\n\nTindakan ini tidak dapat dibatalkan!')) {
+    // Set data untuk modal
+    document.getElementById('deleteBookingCode').textContent = bookingCode;
+    document.getElementById('deleteBookingId').value = id;
+    
+    // Tampilkan modal konfirmasi
+    const modal = new bootstrap.Modal(document.getElementById('deleteModal'));
+    modal.show();
+}
+
+function confirmDelete() {
+    const id = document.getElementById('deleteBookingId').value;
+    if (id) {
         window.location.href = 'pemesanan.php?action=delete&id=' + id;
     }
-}
-
-// Fungsi untuk pemesanan tunai
-let selectedSeats = [];
-
-// Muat tanggal yang tersedia berdasarkan rute yang dipilih
-function loadAvailableDates() {
-    const routeId = document.getElementById('route_select').value;
-    const dateSelect = document.getElementById('tanggal_berangkat_select');
-    const dateManual = document.getElementById('tanggal_berangkat_manual');
-    const dateHint = document.getElementById('tanggal_hint');
-    
-    // Setel ulang kolom tanggal
-    dateSelect.innerHTML = '<option value="">-- Pilih Tanggal --</option>';
-    dateSelect.style.display = 'none';
-    dateManual.style.display = 'none';
-    dateManual.value = '';
-    dateSelect.removeAttribute('name');
-    dateManual.removeAttribute('name');
-    
-    // Setel ulang peta kursi
-    selectedSeats = [];
-    document.getElementById('kursi_dipilih').value = '';
-    document.getElementById('total_harga').value = '';
-    document.getElementById('jumlah_penumpang').value = '1';
-    document.getElementById('seatMap').style.display = 'none';
-    document.getElementById('seatMapPlaceholder').style.display = 'block';
-    
-    if (!routeId) {
-        dateHint.textContent = 'Pilih rute terlebih dahulu';
-        return;
-    }
-    
-    dateHint.textContent = 'Memuat jadwal...';
-    
-    // Ambil tanggal yang tersedia dari jadwal
-    fetch('get_available_dates.php?route_id=' + routeId)
-    .then(response => response.json())
-    .then(data => {
-        console.log('Jadwal response:', data);
-        if (data.success && data.dates.length > 0) {
-            // Ada jadwal, gunakan dropdown
-            data.dates.forEach(schedule => {
-                const option = document.createElement('option');
-                option.value = schedule.date_value;
-                option.textContent = schedule.date_display + ' - ' + schedule.jam_berangkat.substring(0, 5);
-                dateSelect.appendChild(option);
-            });
-            dateSelect.style.display = 'block';
-            dateSelect.setAttribute('name', 'tanggal_berangkat');
-            dateSelect.setAttribute('required', 'required');
-            dateHint.textContent = 'Pilih dari jadwal yang tersedia';
-        } else {
-            // Tidak ada jadwal, gunakan date picker manual
-            dateManual.style.display = 'block';
-            dateManual.setAttribute('name', 'tanggal_berangkat');
-            dateManual.setAttribute('required', 'required');
-            dateHint.textContent = 'Tidak ada jadwal terdaftar, pilih tanggal manual';
-        }
-    })
-    .catch(error => {
-        console.error('Error loading dates:', error);
-        // Kembali ke pemilih tanggal jika terjadi kesalahan
-        dateManual.style.display = 'block';
-        dateManual.setAttribute('name', 'tanggal_berangkat');
-        dateManual.setAttribute('required', 'required');
-        dateHint.textContent = 'Pilih tanggal manual';
-    });
-}
-
-function loadSeats() {
-    const routeId = document.getElementById('route_select').value;
-    const tanggal = document.getElementById('tanggal_berangkat_select').value || 
-                    document.getElementById('tanggal_berangkat_manual').value;
-    
-    if (!routeId || !tanggal) {
-        document.getElementById('seatMap').style.display = 'none';
-        document.getElementById('seatMapPlaceholder').style.display = 'block';
-        return;
-    }
-    
-    document.getElementById('seatMapPlaceholder').style.display = 'none';
-    
-    // AJAX request untuk mendapatkan data kursi
-    fetch('get_available_seats.php', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: 'route_id=' + routeId + '&tanggal=' + tanggal
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            generateCashBookingSeatMap(data.total_kursi, data.kursi_terpesan_list || []);
-            document.getElementById('seatMap').style.display = 'block';
-        } else {
-            alert(data.message || 'Gagal memuat data kursi');
-        }
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        alert('Terjadi kesalahan saat memuat data kursi');
-    });
 }
 
 function generateCashBookingSeatMap(totalSeats, bookedSeats) {
@@ -1202,99 +895,6 @@ function updateTotal() {
     const total = price * qty;
     document.getElementById('total_harga').value = total;
 }
-
-// Setel ulang formulir saat modal ditutup
-$('#cashBookingModal').on('hidden.bs.modal', function() {
-    document.getElementById('cashBookingForm').reset();
-    selectedSeats = [];
-    document.getElementById('passengerFormsContainer').innerHTML = '';
-    document.getElementById('tanggal_berangkat_select').innerHTML = '<option value="">-- Pilih Tanggal --</option>';
-    document.getElementById('tanggal_berangkat_select').style.display = 'none';
-    document.getElementById('tanggal_berangkat_manual').style.display = 'none';
-    document.getElementById('tanggal_hint').textContent = 'Pilih rute terlebih dahulu';
-    document.getElementById('seatMap').style.display = 'none';
-    document.getElementById('seatMapPlaceholder').style.display = 'block';
-});
-
-// Validasi form sebelum submit
-$('#cashBookingForm').on('submit', function(e) {
-    const namaLengkap = document.getElementById('nama_lengkap').value.trim();
-    const email = document.getElementById('email').value.trim();
-    const noHp = document.getElementById('no_hp').value.trim();
-    const routeId = document.getElementById('route_select').value;
-    const tanggal = document.getElementById('tanggal_berangkat_select').value || document.getElementById('tanggal_berangkat_manual').value;
-    const kursiDipilih = document.getElementById('kursi_dipilih').value;
-    const totalHarga = document.getElementById('total_harga').value;
-    
-    console.log('Form validation:', {namaLengkap, email, noHp, routeId, tanggal, kursiDipilih, totalHarga});
-    
-    if (!namaLengkap) {
-        e.preventDefault();
-        alert('Nama lengkap harus diisi!');
-        return false;
-    }
-    
-    if (!email) {
-        e.preventDefault();
-        alert('Email harus diisi!');
-        return false;
-    }
-    
-    if (!noHp) {
-        e.preventDefault();
-        alert('No HP harus diisi!');
-        return false;
-    }
-    
-    if (!routeId) {
-        e.preventDefault();
-        alert('Silakan pilih rute!');
-        return false;
-    }
-    
-    if (!tanggal) {
-        e.preventDefault();
-        alert('Silakan pilih tanggal berangkat!');
-        return false;
-    }
-    
-    if (!kursiDipilih || kursiDipilih.trim() === '') {
-        e.preventDefault();
-        alert('Silakan pilih kursi terlebih dahulu!');
-        return false;
-    }
-    
-    if (!totalHarga || totalHarga == 0) {
-        e.preventDefault();
-        alert('Total harga tidak valid!');
-        return false;
-    }
-    
-    // Validasi data penumpang
-    const passengerInputs = document.querySelectorAll('.passenger-input-admin[required]');
-    let allPassengerDataFilled = true;
-    
-    passengerInputs.forEach(input => {
-        if (!input.value.trim()) {
-            allPassengerDataFilled = false;
-        }
-    });
-    
-    if (!allPassengerDataFilled) {
-        e.preventDefault();
-        alert('Silakan lengkapi data semua penumpang (Nama & No HP wajib diisi)!');
-        return false;
-    }
-    
-    // Konfirmasi sebelum submit
-    if (!confirm('Apakah Anda yakin ingin membuat pemesanan tunai ini?\n\nPemesan: ' + namaLengkap + '\nKursi: ' + kursiDipilih + '\nTotal: Rp ' + parseInt(totalHarga).toLocaleString('id-ID'))) {
-        e.preventDefault();
-        return false;
-    }
-    
-    console.log('Form submitted successfully');
-    return true;
-});
 
 </script>
 

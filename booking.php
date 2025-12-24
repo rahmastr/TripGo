@@ -560,23 +560,6 @@ function generatePassengerForms() {
                     </div>
                     
                     <div class="col-md-6">
-                        <label class="form-label small mb-1">Jenis Identitas</label>
-                        <select class="form-select form-select-sm" name="penumpang[${index}][jenis_identitas]">
-                            <option value="KTP">KTP</option>
-                            <option value="SIM">SIM</option>
-                            <option value="Passport">Passport</option>
-                            <option value="Lainnya">Lainnya</option>
-                        </select>
-                    </div>
-                    
-                    <div class="col-md-6">
-                        <label class="form-label small mb-1">No Identitas</label>
-                        <input type="text" class="form-control form-control-sm" 
-                               name="penumpang[${index}][no_identitas]" 
-                               placeholder="Nomor KTP/SIM/Passport">
-                    </div>
-                    
-                    <div class="col-md-6">
                         <label class="form-label small mb-1">Usia</label>
                         <select class="form-select form-select-sm" name="penumpang[${index}][usia]">
                             <option value="Dewasa">Dewasa</option>

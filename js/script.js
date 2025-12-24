@@ -39,7 +39,7 @@ forms.forEach(form => {
             e.preventDefault();
             e.stopPropagation();
         }
-        form.classList.add('was-validated');
+        // form.classList.add('was-validated'); // Dinonaktifkan untuk menghilangkan centang hijau
     });
 });
 

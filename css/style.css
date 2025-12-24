@@ -127,6 +127,24 @@
     box-shadow: 0 0 0 0.25rem rgba(5, 150, 105, 0.15);
 }
 
+/* Hilangkan centang hijau dari Bootstrap validation */
+.form-control.is-valid,
+.form-select.is-valid,
+.was-validated .form-control:valid,
+.was-validated .form-select:valid {
+    background-image: none !important;
+    border-color: #ced4da !important;
+    padding-right: 0.75rem !important;
+}
+
+.form-control.is-valid:focus,
+.form-select.is-valid:focus,
+.was-validated .form-control:valid:focus,
+.was-validated .form-select:valid:focus {
+    border-color: #059669 !important;
+    box-shadow: 0 0 0 0.25rem rgba(5, 150, 105, 0.15) !important;
+}
+
 /* Badge Styles */
 .badge {
     font-weight: 500;

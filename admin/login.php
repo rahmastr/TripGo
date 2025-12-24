@@ -207,9 +207,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                     </button>
                 </form>
                 
-                <div class="alert alert-info mt-2 mb-0 py-2">
-                    <small><i class="bi bi-info-circle"></i> Halaman ini khusus untuk administrator</small>
-                </div>
+                
             </div>
         </div>
     </div>

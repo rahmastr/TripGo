@@ -69,8 +69,7 @@ include 'includes/navbar.php';
 <div class="page-header">
     <div class="d-flex justify-content-between align-items-center">
         <div>
-            <h2><i class="bi bi-calendar-event"></i> Jadwal Perjalanan</h2>
-            <p>Kelola jadwal operasional bus TripGo</p>
+            <h2> Jadwal Perjalanan</h2>
         </div>
         <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#jadwalModal" onclick="resetForm()">
             <i class="bi bi-plus-circle"></i> Tambah Jadwal
@@ -211,7 +210,28 @@ include 'includes/navbar.php';
     <input type="hidden" name="id" id="delete_id">
 </form>
 
+<!-- Modal Konfirmasi Hapus -->
+<div class="modal fade" id="deleteModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title"><i class="bi bi-exclamation-triangle"></i> Konfirmasi Hapus</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Apakah Anda ingin menghapus jadwal ini?</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Tidak</button>
+                <button type="button" class="btn btn-danger" onclick="confirmDelete()">Ya</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
+let deleteIdTemp = null;
+
 function resetForm() {
     document.getElementById('jadwalForm').reset();
     document.getElementById('action').value = 'create';
@@ -232,8 +252,14 @@ function editJadwal(jadwal) {
 }
 
 function deleteJadwal(id) {
-    if (confirm('Yakin ingin menghapus jadwal ini?')) {
-        document.getElementById('delete_id').value = id;
+    deleteIdTemp = id;
+    const modal = new bootstrap.Modal(document.getElementById('deleteModal'));
+    modal.show();
+}
+
+function confirmDelete() {
+    if (deleteIdTemp) {
+        document.getElementById('delete_id').value = deleteIdTemp;
         document.getElementById('deleteForm').submit();
     }
 }
