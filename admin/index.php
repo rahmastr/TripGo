@@ -151,29 +151,12 @@ include 'includes/navbar.php';
             </div>
         </div>
     </div>
-    <div class="col-lg-4 mb-4">
-        <div class="chart-container" style="height: 280px;">
-            <h5><i class="bi bi-pie-chart"></i> Metode Pembayaran</h5>
-            <div style="height: 220px;">
-                <canvas id="paymentChart"></canvas>
-            </div>
-        </div>
-    </div>
+   
 </div>
 
-<!-- Revenue Charts Row -->
-<div class="row mt-2">
-    <div class="col-12 mb-4">
-        <div class="chart-container" style="height: 300px;">
-            <h5><i class="bi bi-cash-stack"></i> Pendapatan Berdasarkan Metode Pembayaran</h5>
-            <div style="height: 240px;">
-                <canvas id="revenueChart"></canvas>
-            </div>
-        </div>
-    </div>
-</div>
 
-<!-- Recent Bookings Table -->
+
+
 <div class="table-container mt-4">
     <h5 class="mb-3"><i class="bi bi-clock-history"></i> Pemesanan Terbaru</h5>
     <div class="table-responsive">
@@ -285,7 +268,7 @@ const routeChart = new Chart(routeCtx, {
     }
 });
 
-// Payment Method Chart (Pie)
+
 const paymentCtx = document.getElementById('paymentChart').getContext('2d');
 const paymentChart = new Chart(paymentCtx, {
     type: 'pie',
